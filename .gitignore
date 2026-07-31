@@ -46,3 +46,6 @@ next-env.d.ts
 
 # static export output
 /out/
+
+# demo recordings (binary; regenerate with npm run demo)
+/demo/
