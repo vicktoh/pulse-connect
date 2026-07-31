@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# firebase emulator artifacts
+*-debug.log
+.firebase/
+
+# static export output
+/out/

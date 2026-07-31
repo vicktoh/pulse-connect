@@ -1,0 +1,157 @@
+rules_version = '2';
+
+// PULSE Community — Firestore security rules.
+//
+// This file IS the enforcement layer. The /admin route only hides controls; it
+// does not protect data. Everything that matters is the isAdmin() clauses here.
+//
+// Two constraints shape the whole design:
+//   1. A submitter's email must never sit in a publicly readable document.
+//      Rules cannot hide a *field*, so the email lives in a separate
+//      `submissionContacts` document that only an admin can read.
+//   2. The support count must be validatable without Cloud Functions. It is:
+//      each ±1 change must be accompanied, in the same atomic batch, by the
+//      matching `supports/{submissionId}_{uid}` ledger document appearing or
+//      disappearing. See the support rule below.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // .get() with a default rather than `.admin` directly: a bare property
+    // access on a token without the claim raises an evaluation error, which
+    // denies safely but floods the logs and masks real rule failures.
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.get('admin', false) == true;
+    }
+
+    function isText(value, minLen, maxLen) {
+      return value is string && value.size() >= minLen && value.size() <= maxLen;
+    }
+
+    // The current visitor's ledger doc for a given submission.
+    function supportRef(submissionId) {
+      return /databases/$(database)/documents/supports/$(submissionId + '_' + request.auth.uid);
+    }
+
+    match /submissions/{id} {
+
+      // Rules do not filter query results, they reject queries they cannot
+      // prove safe — so the public listener MUST carry
+      // where('moderation','==','approved') or it is denied outright.
+      // The isAdmin() branch is what lets the moderation queue read pending.
+      allow get, list: if resource.data.moderation == 'approved' || isAdmin();
+
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+             'name', 'role', 'org', 'sector', 'status', 'moderation',
+             'observed', 'changed', 'supportCount', 'ibpResponse',
+             'createdAt', 'publishedAt', 'authorUid'
+           ])
+        && request.resource.data.keys().hasAll([
+             'name', 'role', 'org', 'sector', 'status', 'moderation',
+             'observed', 'changed', 'supportCount', 'ibpResponse',
+             'createdAt', 'publishedAt', 'authorUid'
+           ])
+        && isText(request.resource.data.name, 1, 80)
+        && isText(request.resource.data.role, 1, 80)
+        && isText(request.resource.data.org, 1, 120)
+        && isText(request.resource.data.observed, 1, 400)
+        && isText(request.resource.data.changed, 1, 400)
+        && request.resource.data.sector in ['health', 'education', 'wash', 'social', 'debt']
+        // A submitter may not grant themselves visibility, standing or support.
+        && request.resource.data.moderation == 'pending'
+        && request.resource.data.status == 'received'
+        && request.resource.data.supportCount == 0
+        && request.resource.data.ibpResponse == null
+        && request.resource.data.publishedAt == null
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.authorUid == request.auth.uid
+        // The contact document must land in the same atomic write, so a
+        // submission can never exist without its (private) contact record.
+        && existsAfter(/databases/$(database)/documents/submissionContacts/$(id));
+
+      // Support toggle. Only supportCount may move, by exactly ±1, and only
+      // in lockstep with the ledger doc appearing (+1) or disappearing (-1).
+      //   double-support    -> ledger doc already exists  -> denied
+      //   double-un-support -> ledger doc already gone    -> denied
+      //   delete-and-redo   -> nets exactly zero          -> no inflation path
+      allow update: if isSignedIn()
+        && resource.data.moderation == 'approved'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['supportCount'])
+        && (
+             (
+               request.resource.data.supportCount == resource.data.supportCount + 1
+               && !exists(supportRef(id))
+               && existsAfter(supportRef(id))
+             )
+             ||
+             (
+               request.resource.data.supportCount == resource.data.supportCount - 1
+               && resource.data.supportCount > 0
+               && exists(supportRef(id))
+               && !existsAfter(supportRef(id))
+             )
+           );
+
+      // Moderation. The key whitelist is what stops an admin action from
+      // silently rewriting the testimony itself.
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+             'moderation', 'status', 'ibpResponse',
+             'publishedAt', 'moderatedAt', 'moderatedBy'
+           ])
+        && request.resource.data.moderation in ['pending', 'approved', 'rejected']
+        && request.resource.data.status in ['received', 'review', 'cited']
+        && (
+             request.resource.data.ibpResponse == null
+             || isText(request.resource.data.ibpResponse, 1, 1200)
+           );
+
+      allow delete: if isAdmin();
+    }
+
+    // Private contact details. Admin-read only; nobody may ever edit or delete
+    // one, including the submitter — there is no product need, and the tighter
+    // rule costs nothing.
+    match /submissionContacts/{id} {
+      allow read: if isAdmin();
+
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['email', 'submissionId', 'authorUid', 'createdAt'])
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && request.resource.data.submissionId == id
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+
+      allow update, delete: if false;
+    }
+
+    // The dedup ledger. The composite document id IS the dedup mechanism:
+    // a second create on the same path is evaluated as an update, and update
+    // is denied outright.
+    match /supports/{supportId} {
+      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+
+      allow create: if isSignedIn()
+        && supportId == request.resource.data.submissionId + '_' + request.auth.uid
+        && request.resource.data.keys().hasOnly(['submissionId', 'uid', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && getAfter(/databases/$(database)/documents/submissions/$(request.resource.data.submissionId))
+             .data.moderation == 'approved';
+
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow update: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

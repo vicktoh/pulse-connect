@@ -1,26 +1,223 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
+
+/* =============================================================================
+   PULSE COMMUNITY DESIGN SYSTEM
+   See DESIGN.md for the semantic rationale behind every token below.
+   ============================================================================= */
 
 @theme inline {
+  /* ---- Type ------------------------------------------------------------- */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, SFMono-Regular, monospace;
+
+  /* ---- Brand: institutional navies --------------------------------------- */
+  --color-navy: #004080; /* Signal Navy */
+  --color-navy-light: #1a5694; /* Lifted Navy */
+  --color-navy-deep: #002d5c; /* Deep Ministry Navy */
+  --color-navy-midnight: #001f40; /* Midnight Charter Navy */
+
+  /* ---- Brand: warm accent ------------------------------------------------ */
+  --color-amber: #f0a030; /* Civic Amber */
+  --color-amber-dark: #d4860a; /* Burnished Amber */
+
+  /* ---- Brand: status signals --------------------------------------------- */
+  --color-alarm: #e03020; /* Alarm Red */
+  --color-verified: #16a34a; /* Verification Green */
+
+  /* ---- Sector (Lab) markers ---------------------------------------------- */
+  --color-lab-health: #e03020;
+  --color-lab-education: #004080;
+  --color-lab-wash: #0891b2;
+  --color-lab-social: #7c3aed;
+  --color-lab-debt: #f0a030;
+
+  /* ---- Paper & ink ------------------------------------------------------- */
+  --color-paper: #ffffff; /* Document White */
+  --color-paper-2: #f6f9fc; /* Cool Paper */
+  --color-paper-3: #eef3f9; /* Pressed Paper */
+  --color-ink: #0c1f38; /* Deep Ink */
+  --color-grey: #5a6b85; /* Considered Grey */
+  --color-grey-light: #8a98b0; /* Quiet Grey */
+  --color-line: #dde6f0; /* Hairline */
+  --color-line-strong: #cdd9e8; /* Defined Hairline */
+
+  /* ---- Recessive text on navy surfaces ----------------------------------- */
+  --color-on-navy: #6a86a8;
+  --color-on-navy-muted: #445e7a;
+  --color-on-navy-faint: #2a3e58;
+
+  /* ---- Elevation --------------------------------------------------------- */
+  --shadow-card: 0 4px 16px rgb(0 64 128 / 0.08);
+  --shadow-card-lg: 0 8px 32px rgb(0 64 128 / 0.12);
+
+  /* ---- Stacking order -----------------------------------------------------
+     One scale for every layer that can overlap. Reference these rather than
+     writing raw z-index values: the sticky masthead and control bar are design
+     features, so anything that must appear above them has to know where they
+     sit. Popovers are last because a dropdown opened from inside a modal must
+     still clear that modal.                                                  */
+  --z-control: 90; /* filter bar, pinned under the masthead */
+  --z-masthead: 100; /* site header */
+  --z-modal: 200; /* dialog backdrop and popup */
+  --z-popover: 300; /* select menus, tooltips — above everything */
+
+  /* ---- shadcn semantic surface --------------------------------------------
+     Mapped onto the PULSE palette so every shadcn primitive inherits the
+     system without per-component overrides.                                  */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* ---- Geometry -----------------------------------------------------------
+     radius = 12px, the submission-card corner. Everything else derives:
+     md ≈ 10px (inputs), xl ≈ 17px (modal), and rounded-full for pills.       */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --radius: 0.75rem;
+
+  --background: #f6f9fc;
+  --foreground: #0c1f38;
+  --card: #ffffff;
+  --card-foreground: #0c1f38;
+  --popover: #ffffff;
+  --popover-foreground: #0c1f38;
+
+  /* Primary is the institution speaking: Midnight Charter Navy. */
+  --primary: #001f40;
+  --primary-foreground: #ffffff;
+
+  --secondary: #eef3f9;
+  --secondary-foreground: #0c1f38;
+  --muted: #eef3f9;
+  --muted-foreground: #5a6b85;
+  --accent: #eef3f9;
+  --accent-foreground: #004080;
+
+  --destructive: #e03020;
+  --border: #dde6f0;
+  --input: #cdd9e8;
+  --ring: #004080;
+
+  --chart-1: #e03020;
+  --chart-2: #004080;
+  --chart-3: #0891b2;
+  --chart-4: #7c3aed;
+  --chart-5: #f0a030;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0c1f38;
+  --sidebar-primary: #001f40;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef3f9;
+  --sidebar-accent-foreground: #004080;
+  --sidebar-border: #dde6f0;
+  --sidebar-ring: #004080;
+}
+
+.dark {
+  --background: #001527;
+  --foreground: #eaf1f8;
+  --card: #04223f;
+  --card-foreground: #eaf1f8;
+  --popover: #04223f;
+  --popover-foreground: #eaf1f8;
+  --primary: #f0a030;
+  --primary-foreground: #001f40;
+  --secondary: #0a2d4f;
+  --secondary-foreground: #eaf1f8;
+  --muted: #0a2d4f;
+  --muted-foreground: #8fa6c0;
+  --accent: #0a2d4f;
+  --accent-foreground: #f0a030;
+  --destructive: #f26454;
+  --border: #ffffff1a;
+  --input: #ffffff26;
+  --ring: #1a5694;
+  --sidebar: #04223f;
+  --sidebar-foreground: #eaf1f8;
+  --sidebar-primary: #f0a030;
+  --sidebar-primary-foreground: #001f40;
+  --sidebar-accent: #0a2d4f;
+  --sidebar-accent-foreground: #f0a030;
+  --sidebar-border: #ffffff1a;
+  --sidebar-ring: #1a5694;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground;
+    line-height: 1.6;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-heading font-semibold;
+    line-height: 1.1;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* The system signature: a 3px red→amber→blue hairline that caps every
+     surface authored by IBP (hero, sidebar headers, modal header). */
+  .gradient-rule::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 3px;
+    background: linear-gradient(
+      90deg,
+      var(--color-alarm),
+      var(--color-amber),
+      var(--color-navy-light)
+    );
+  }
 }

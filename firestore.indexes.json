@@ -1,0 +1,14 @@
+{
+  "indexes": [
+    {
+      "//": "Serves BOTH the public feed (moderation == 'approved') and the admin queue (moderation == 'pending') — they differ only in the equality value.",
+      "collectionGroup": "submissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "moderation", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
