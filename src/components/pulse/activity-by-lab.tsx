@@ -26,7 +26,7 @@ export function ActivityByLab() {
 
   return (
     <>
-      {counts.map(({ sector, count }) => {
+      {counts.map(({ sector, count }, index) => {
         const lab = LABS[sector]
         return (
           <div key={sector}>
@@ -38,18 +38,24 @@ export function ActivityByLab() {
               <span className="flex-1 text-[12.5px] text-grey">
                 {lab.icon} {lab.label}
               </span>
-              <span
-                key={count}
-                className="animate-in fade-in slide-in-from-bottom-1 text-xs font-bold text-ink duration-300 motion-reduce:animate-none"
-              >
-                {ready ? count : "—"}
+              <span className="inline-grid overflow-hidden text-xs font-bold text-ink">
+                <span key={count} className="animate-roll-up [grid-area:1/1]">
+                  {ready ? count : "—"}
+                </span>
               </span>
             </div>
+            {/* Bars fill from the left on a transform rather than a width, so
+                the five of them animate on the compositor. The pill shape is
+                carried by the clipping track above, which is why the fill
+                itself is square: scaling a rounded bar squashes its own caps.
+                Each bar is offset from the one above so the panel fills as a
+                sequence, not as a block. */}
             <div className="mt-[3px] h-1 overflow-hidden rounded-full bg-paper-3">
               <div
-                className="h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
+                className="h-full origin-left transition-transform duration-500 ease-out-quint motion-reduce:transition-none"
                 style={{
-                  width: `${(count / max) * 100}%`,
+                  transform: `scaleX(${count / max})`,
+                  transitionDelay: `${index * 60}ms`,
                   background: lab.color,
                 }}
               />

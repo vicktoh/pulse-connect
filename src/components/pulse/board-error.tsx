@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button"
  */
 export function BoardError({ onRetry }: { onRetry: () => void }) {
   return (
-    <div role="alert" className="px-5 py-15 text-center">
-      <div className="mb-3.5 text-4xl">📡</div>
+    <div role="alert" className="animate-rise px-5 py-15 text-center">
+      <div className="mb-3.5 animate-drift text-4xl">📡</div>
       <div className="mb-2 font-heading text-xl text-ink">
         We could not reach the record.
       </div>

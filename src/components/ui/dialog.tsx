@@ -34,7 +34,10 @@ function DialogOverlay({
         // PULSE backdrop: a 60% navy-black wash under a 4px blur. Layering
         // comes from the stacking scale in globals.css — the modal must clear
         // the sticky masthead, and popovers opened inside it must clear this.
-        "fixed inset-0 isolate z-[var(--z-modal)] bg-[rgb(0_15_40_/_0.6)] duration-100 supports-backdrop-filter:backdrop-blur-[4px] data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        //
+        // The wash fades on the same 250ms as the popup rises, so the page
+        // recedes and the dialog arrives as one gesture rather than two.
+        "fixed inset-0 isolate z-[var(--z-modal)] bg-[rgb(0_15_40_/_0.6)] duration-[var(--duration-modal)] ease-out-expo supports-backdrop-filter:backdrop-blur-[4px] data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 data-closed:duration-[180ms]",
         className
       )}
       {...props}
@@ -56,7 +59,10 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-[var(--z-modal)] grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          // `animate-modal-in` / `animate-modal-out` rather than the generic
+          // zoom pair: DESIGN.md §4 specifies a rise-and-fade, not a zoom.
+          // See globals.css for the keyframes.
+          "fixed top-1/2 left-1/2 z-[var(--z-modal)] grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none sm:max-w-sm data-open:animate-modal-in data-closed:animate-modal-out",
           className
         )}
         {...props}

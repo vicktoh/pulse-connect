@@ -22,14 +22,22 @@ import {
   SUBMISSION_STATUSES,
   type SubmissionStatus,
 } from "@/lib/pulse/labs"
+import { staggerIndex } from "@/lib/pulse/motion"
 import { formatSubmissionDate, type Submission } from "@/lib/pulse/submissions"
+import { cn } from "@/lib/utils"
 
 const STATUS_ITEMS = SUBMISSION_STATUSES.map((value) => ({
   value,
   label: STATUS_LABELS[value],
 }))
 
-export function ModerationCard({ submission }: { submission: Submission }) {
+export function ModerationCard({
+  submission,
+  index,
+}: {
+  submission: Submission
+  index: number
+}) {
   const { user } = useFirebaseAuth()
   const lab = LABS[submission.sector]
 
@@ -87,7 +95,10 @@ export function ModerationCard({ submission }: { submission: Submission }) {
   }
 
   return (
-    <article className="relative mb-4 overflow-hidden rounded-lg border border-line bg-white">
+    <article
+      style={{ "--i": staggerIndex(index) } as React.CSSProperties}
+      className="stagger relative mb-4 animate-rise overflow-hidden rounded-lg border border-line bg-white"
+    >
       <span
         aria-hidden
         className="absolute inset-y-0 left-0 w-1"
@@ -174,28 +185,57 @@ export function ModerationCard({ submission }: { submission: Submission }) {
         {error ? (
           <p
             role="alert"
-            className="mb-3 rounded-lg bg-paper-3 px-3.5 py-3 text-[12.5px] text-grey"
+            className="mb-3 animate-rise-sm rounded-lg bg-paper-3 px-3.5 py-3 text-[12.5px] text-grey"
           >
             {error}
           </p>
         ) : null}
 
+        {/* Both actions write to Firestore, so both carry the indeterminate
+            rule while the write is in flight. The card leaving the queue is
+            the confirmation; the bar is what covers the wait before it. */}
         <div className="flex flex-wrap items-center gap-2.5">
           <Button
             variant="cta"
             size="pill"
             disabled={busy !== null}
+            aria-busy={busy === "approve"}
             onClick={() => moderate("approve")}
+            // The button doing the work keeps full opacity — a faded control
+            // under a running progress bar reads as broken. The other one
+            // dims, because it genuinely is unavailable.
+            className={cn(
+              "overflow-hidden",
+              busy === "approve" && "disabled:opacity-100"
+            )}
           >
-            {busy === "approve" ? "Publishing…" : "Approve & Publish"}
+            <span key={busy === "approve" ? "busy" : "idle"} className="animate-rise-sm">
+              {busy === "approve" ? "Publishing…" : "Approve & Publish"}
+            </span>
+            {busy === "approve" ? (
+              <span aria-hidden className="progress-rule" />
+            ) : null}
           </Button>
           <Button
             variant="pill"
             size="pill"
             disabled={busy !== null}
+            aria-busy={busy === "reject"}
             onClick={() => moderate("reject")}
+            // The button doing the work keeps full opacity — a faded control
+            // under a running progress bar reads as broken. The other one
+            // dims, because it genuinely is unavailable.
+            className={cn(
+              "overflow-hidden",
+              busy === "reject" && "disabled:opacity-100"
+            )}
           >
-            {busy === "reject" ? "Rejecting…" : "Reject"}
+            <span key={busy === "reject" ? "busy" : "idle"} className="animate-rise-sm">
+              {busy === "reject" ? "Rejecting…" : "Reject"}
+            </span>
+            {busy === "reject" ? (
+              <span aria-hidden className="progress-rule" />
+            ) : null}
           </Button>
           <span className="text-[11.5px] text-grey-light">
             Currently {submission.moderation}

@@ -55,6 +55,45 @@
   --shadow-card: 0 4px 16px rgb(0 64 128 / 0.08);
   --shadow-card-lg: 0 8px 32px rgb(0 64 128 / 0.12);
 
+  /* ---- Motion -------------------------------------------------------------
+     Three exponential ease-outs, no bounce and no elastic: this is a civic
+     record, and motion that draws attention to itself is motion that competes
+     with the testimony. Everything decelerates into place and stops.
+
+       quart  general state changes, hover, colour
+       quint  entrances, reveals, the support gesture
+       expo   the modal, and anything that should feel decisive
+
+     Durations follow the register split in PRODUCT.md. Product surfaces sit at
+     140–260ms; only the hero band and the modal are allowed past 300ms. Exits
+     run at roughly 75% of their entrance.                                    */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --duration-feedback: 140ms; /* press, glyph swap */
+  --duration-state: 200ms; /* hover, colour, pill activation */
+  --duration-reveal: 320ms; /* card and panel entrances */
+  --duration-modal: 250ms; /* DESIGN.md §4: "a short 250ms rise-and-fade" */
+
+  /* Named animations, consumed as `animate-*` utilities.
+
+     The delay is read from `--stagger-delay` inside the shorthand rather than
+     set by a separate `animation-delay` declaration: the shorthand resets
+     delay to 0, so a `.stagger` utility sitting in the same cascade layer
+     would win or lose depending on emission order. Threading it through a
+     custom property takes the ordering question off the table. */
+  --animate-rise: rise var(--duration-reveal) var(--ease-out-quint)
+    var(--stagger-delay, 0s) both;
+  --animate-rise-sm: rise-sm var(--duration-state) var(--ease-out-quart)
+    var(--stagger-delay, 0s) both;
+  --animate-roll-up: roll-up var(--duration-reveal) var(--ease-out-quint) both;
+  --animate-roll-down: roll-down var(--duration-reveal) var(--ease-out-quint) both;
+  --animate-drift: drift 6s ease-in-out infinite;
+  --animate-seal: seal 700ms var(--ease-out-quint) both;
+  --animate-modal-in: modal-in var(--duration-modal) var(--ease-out-expo) both;
+  --animate-modal-out: modal-out 180ms var(--ease-out-quart) both;
+
   /* ---- Stacking order -----------------------------------------------------
      One scale for every layer that can overlap. Reference these rather than
      writing raw z-index values: the sticky masthead and control bar are design
@@ -219,5 +258,229 @@
       var(--color-amber),
       var(--color-navy-light)
     );
+  }
+}
+
+/* =============================================================================
+   MOTION
+   Keyframes are declared at the top level so they are emitted verbatim; the
+   `--animate-*` tokens above bind them to `animate-*` utilities.
+   ============================================================================= */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+}
+
+@keyframes rise-sm {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 4px, 0);
+  }
+}
+
+/* Digit rolls. A count that ticks up should move up; one that ticks down should
+   move down. Direction is the whole point — a fade alone loses it. */
+@keyframes roll-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 65%, 0);
+  }
+}
+
+@keyframes roll-down {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -65%, 0);
+  }
+}
+
+/* The error nudge lives in src/lib/pulse/motion.ts instead: it has to replay on
+   every failed submit, and a CSS animation cannot replay without a remount. */
+
+/* Empty and error states. Slow enough to read as stillness rather than motion. */
+@keyframes drift {
+  50% {
+    transform: translate3d(0, -6px, 0);
+  }
+}
+
+/* The received-seal on a completed submission. */
+@keyframes seal {
+  from {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+}
+
+@keyframes seal-draw {
+  from {
+    stroke-dashoffset: var(--draw-length);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/**
+ * Modal enter and exit. DESIGN.md §4 asks for "a short 250ms rise-and-fade on a
+ * decisive ease-out curve", which is a rise — tw-animate-css only offers a zoom.
+ *
+ * The popup's `-translate-x-1/2 -translate-y-1/2` centering compiles to the
+ * standalone `translate` property in Tailwind v4, which the browser applies
+ * before `transform`. So `transform` here is purely the animation's own delta;
+ * repeating the -50% would double the offset and throw the dialog off centre.
+ */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes modal-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.985);
+  }
+}
+
+/* Skeleton sweep: one composited overlay per card rather than a throb on the
+   whole block, so the placeholder reads as work in progress with a direction
+   to it instead of a pulsing slab. */
+@keyframes skeleton-sweep {
+  from {
+    transform: translate3d(-100%, 0, 0);
+  }
+  to {
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
+/* Indeterminate progress under a committed action. Carries the system's
+   red→amber→blue signature rather than a generic spinner. */
+@keyframes progress-sweep {
+  from {
+    transform: translate3d(-100%, 0, 0);
+  }
+  to {
+    transform: translate3d(200%, 0, 0);
+  }
+}
+
+/* Corroboration ring. One ripple, navy, gone in 600ms. Deliberately not a
+   burst or a particle effect: "I have seen this too" is corroboration, not
+   applause. See PRODUCT.md anti-references. */
+@keyframes corroborate {
+  from {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+
+@layer utilities {
+  /**
+   * Stagger. Set `--i` on each child (its index) and the entrance offsets
+   * itself. `staggerIndex()` in lib/pulse/motion.ts caps the index so a long
+   * feed does not cascade for seconds.
+   */
+  .stagger {
+    --stagger-delay: calc(var(--i, 0) * var(--stagger-step, 55ms));
+  }
+
+  /** Skeleton placeholder: hosts the sweep overlay. Requires a stacking root. */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 255 255 / 0.85) 45%,
+      rgb(255 255 255 / 0.85) 55%,
+      transparent
+    );
+    animation: skeleton-sweep 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    animation-delay: calc(var(--i, 0) * 140ms);
+  }
+
+  /** Indeterminate bar, pinned to the bottom edge of its (relative) parent. */
+  .progress-rule {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 2px;
+    overflow: hidden;
+  }
+
+  .progress-rule::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    width: 45%;
+    background: linear-gradient(
+      90deg,
+      var(--color-alarm),
+      var(--color-amber),
+      var(--color-navy-light)
+    );
+    animation: progress-sweep 1.1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /** One-shot ripple behind a support pill the moment it is engaged. */
+  .corroborate-ring::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    border: 1.5px solid var(--color-navy);
+    animation: corroborate 600ms var(--ease-out-quint) both;
+    pointer-events: none;
+  }
+
+  /** SVG path that draws itself. Set `--draw-length` to the path length. */
+  .seal-draw {
+    stroke-dasharray: var(--draw-length);
+    animation: seal-draw 640ms var(--ease-out-quint) both;
+  }
+}
+
+/**
+ * One global switch rather than a per-component opt-out. Every animation in
+ * this system is either feedback or a reveal, and both degrade correctly to
+ * their finished state — nothing here depends on the motion to be legible.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .skeleton::after,
+  .corroborate-ring::after {
+    display: none;
   }
 }

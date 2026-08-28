@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { XIcon } from "lucide-react"
 import {
   collection,
@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { LABS, SECTORS, type Sector } from "@/lib/pulse/labs"
+import { nudge, prefersReducedMotion } from "@/lib/pulse/motion"
 
 const SECTOR_ITEMS = SECTORS.map((sector) => ({
   value: sector,
@@ -49,6 +50,43 @@ const EMPTY_FORM = {
 
 type FormShape = typeof EMPTY_FORM
 type FieldErrors = Partial<Record<keyof FormShape, string>>
+
+/** Reading order, so a failed submit lands on the topmost problem. */
+const FIELD_ORDER = [
+  "name",
+  "email",
+  "role",
+  "org",
+  "sector",
+  "observed",
+  "changed",
+] as const satisfies readonly (keyof FormShape)[]
+
+/**
+ * Take the person to the first thing that needs fixing rather than leaving them
+ * to hunt for it. The nudge is on the field, the focus is on the control, and
+ * the scroll is `nearest` so a field already in view does not jump.
+ */
+function goToFirstError(errors: FieldErrors) {
+  const firstKey = FIELD_ORDER.find((key) => errors[key])
+  if (!firstKey) return
+
+  // Deferred so the error message has been committed before we scroll to it.
+  // A timeout rather than rAF: rAF is frozen in a backgrounded tab, which would
+  // silently drop the focus move.
+  setTimeout(() => {
+    const id = `f-${firstKey}`
+    const field = document.querySelector<HTMLElement>(`[data-field="${id}"]`)
+    const control = document.getElementById(id)
+
+    field?.scrollIntoView({
+      block: "nearest",
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+    })
+    control?.focus({ preventScroll: true })
+    nudge(field)
+  })
+}
 
 /** Mirrors the length and format limits enforced in firestore.rules. */
 function validate(form: FormShape): FieldErrors {
@@ -118,6 +156,7 @@ export function SubmitDialog() {
     const nextErrors = validate(form)
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors)
+      goToFirstError(nextErrors)
       return
     }
 
@@ -196,13 +235,27 @@ export function SubmitDialog() {
           </DialogClose>
         </div>
 
+        {/* The panel swap is the moment the submission lands. Morphing the
+            height carries the person from a tall form to a short confirmation
+            instead of collapsing the modal under them. */}
+        <MorphHeight phase={submitted ? "received" : "form"}>
         {submitted ? (
-          <div className="px-7 py-10 text-center">
-            <div className="mb-4 text-[44px]">📬</div>
-            <div className="mb-3 font-heading text-2xl font-semibold text-ink">
+          <div
+            role="status"
+            className="px-7 py-10 text-center"
+            style={{ "--stagger-step": "70ms" } as React.CSSProperties}
+          >
+            <ReceivedSeal />
+            <div
+              className="stagger mb-3 animate-rise font-heading text-2xl font-semibold text-ink"
+              style={{ "--i": 4 } as React.CSSProperties}
+            >
               Received. Thank you.
             </div>
-            <p className="mb-6 text-sm leading-[1.75] text-grey">
+            <p
+              className="stagger mb-6 animate-rise text-sm leading-[1.75] text-grey"
+              style={{ "--i": 5 } as React.CSSProperties}
+            >
               We will review what you have shared and aim to publish it within
               48 hours. You will receive an email shortly to confirm.
               <br />
@@ -210,7 +263,10 @@ export function SubmitDialog() {
               If your account is cited by IBP or referenced in future PULSE
               work, we will reach out personally.
             </p>
-            <div className="inline-flex items-center gap-2 rounded-full bg-paper-3 px-4 py-2 text-xs font-bold text-grey">
+            <div
+              className="stagger inline-flex animate-rise items-center gap-2 rounded-full bg-paper-3 px-4 py-2 text-xs font-bold text-grey"
+              style={{ "--i": 6 } as React.CSSProperties}
+            >
               <span>●</span> Status: Under Review
             </div>
           </div>
@@ -361,16 +417,28 @@ export function SubmitDialog() {
               </p>
             ) : null}
 
+            {/* The sending state carries the system's own red→amber→blue rule
+                as an indeterminate bar rather than a generic spinner, and the
+                button keeps its full opacity: this write can take a moment on
+                a slow connection, and a faded control reads as broken. */}
             <Button
               type="submit"
               variant="cta"
               disabled={submitting}
-              className="w-full py-3.5 text-xs"
+              aria-busy={submitting}
+              className="w-full overflow-hidden py-3.5 text-xs disabled:opacity-100"
             >
-              {submitting ? "Sending…" : "Submit for Review"}
+              <span
+                key={submitting ? "sending" : "idle"}
+                className="animate-rise-sm"
+              >
+                {submitting ? "Sending…" : "Submit for Review"}
+              </span>
+              {submitting ? <span aria-hidden className="progress-rule" /> : null}
             </Button>
           </form>
         )}
+        </MorphHeight>
       </DialogContent>
     </Dialog>
   )
@@ -392,7 +460,7 @@ function Field({
   children: React.ReactNode
 }) {
   return (
-    <div className="mb-5">
+    <div className="mb-5" data-field={htmlFor}>
       <Label htmlFor={htmlFor} className="mb-[7px]">
         {label}
         {qualifier ? <span>{qualifier}</span> : null}
@@ -400,9 +468,14 @@ function Field({
       {children}
       {/* The error takes the hint's slot rather than adding a row, so the form
           does not reflow as fields are validated. It sits in Deep Ink for
-          weight — not red, which DESIGN.md reserves for the Health sector. */}
+          weight — not red, which DESIGN.md reserves for the Health sector.
+          Keyed on the message so a correction cross-fades to the hint rather
+          than snapping. */}
       {error ? (
-        <p className="mt-[5px] text-[11.5px] leading-[1.5] font-semibold text-ink">
+        <p
+          key={error}
+          className="mt-[5px] animate-rise-sm text-[11.5px] leading-[1.5] font-semibold text-ink"
+        >
           {error}
         </p>
       ) : hint ? (
@@ -411,5 +484,151 @@ function Field({
         </p>
       ) : null}
     </div>
+  )
+}
+
+/**
+ * Animates its own height across a change of `phase`.
+ *
+ * The modal is centred with a translate, so a height change re-centres on its
+ * own — all that is missing is the tween between the two heights. Height is a
+ * layout property and normally off-limits, but this is a single small,
+ * `contain`-ed box and the alternative (a 500px form vanishing into a 300px
+ * panel in one frame) is the jarring transition the motion is here to remove.
+ *
+ * Clipping is applied only while the tween runs, so focus halos on the fields
+ * are never cut off at rest.
+ */
+function MorphHeight({
+  phase,
+  children,
+}: {
+  phase: string
+  children: React.ReactNode
+}) {
+  const box = useRef<HTMLDivElement>(null)
+  const content = useRef<HTMLDivElement>(null)
+  const measured = useRef<number | null>(null)
+  const settle = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const release = () => {
+    if (settle.current) clearTimeout(settle.current)
+    if (!box.current) return
+    box.current.style.height = ""
+    box.current.style.overflow = ""
+  }
+
+  useLayoutEffect(() => {
+    const outer = box.current
+    const inner = content.current
+    if (!outer || !inner) return
+
+    const next = inner.offsetHeight
+    const previous = measured.current
+    measured.current = next
+
+    // First render: nothing to tween from.
+    if (previous === null || previous === next) return
+
+    // Written straight to the node and flushed with a forced reflow rather
+    // than staged across two animation frames: rAF is frozen in a backgrounded
+    // tab, which would leave the box pinned at the old height for good.
+    outer.style.overflow = "hidden"
+    outer.style.height = `${previous}px`
+    void outer.offsetHeight
+    outer.style.height = `${next}px`
+
+    // transitionend is the normal release. This is the backstop for the cases
+    // where it never fires — an interrupted transition, a hidden subtree.
+    settle.current = setTimeout(release, 600)
+  }, [phase])
+
+  useEffect(() => release, [])
+
+  return (
+    <div
+      ref={box}
+      onTransitionEnd={(event) => {
+        // Colour and border transitions on the fields inside bubble here too.
+        if (event.target === event.currentTarget) release()
+      }}
+      className="transition-[height] duration-[var(--duration-reveal)] ease-out-quint motion-reduce:transition-none"
+    >
+      <div ref={content}>{children}</div>
+    </div>
+  )
+}
+
+/**
+ * The received mark.
+ *
+ * Not a green tick: DESIGN.md reserves Verification Green for "confirmed,
+ * published, endorsed", and this submission is none of those yet — it is
+ * pending. So the mark draws what actually just happened. A ring closes, the
+ * system's red→amber→blue signature rule wipes in, and two ink lines settle
+ * under it: an account has become a record and is now in IBP's hands.
+ */
+function ReceivedSeal() {
+  return (
+    <svg
+      viewBox="0 0 64 64"
+      role="img"
+      aria-label="Your account has been recorded"
+      className="mx-auto mb-5 size-16 animate-seal"
+    >
+      <defs>
+        <linearGradient id="pulse-seal-rule" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0%" stopColor="var(--color-alarm)" />
+          <stop offset="50%" stopColor="var(--color-amber)" />
+          <stop offset="100%" stopColor="var(--color-navy-light)" />
+        </linearGradient>
+      </defs>
+
+      <circle
+        cx="32"
+        cy="32"
+        r="30"
+        fill="none"
+        stroke="var(--color-line-strong)"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        transform="rotate(-90 32 32)"
+        className="seal-draw"
+        style={{ "--draw-length": "188.5" } as React.CSSProperties}
+      />
+
+      {/* The signature rule, wiping in from the left. */}
+      <rect
+        x="18"
+        y="23"
+        width="28"
+        height="3"
+        rx="1.5"
+        fill="url(#pulse-seal-rule)"
+        className="animate-[rise-sm_260ms_var(--ease-out-quint)_320ms_both]"
+      />
+
+      {/* The record itself. */}
+      <rect
+        x="18"
+        y="33"
+        width="28"
+        height="2.5"
+        rx="1.25"
+        fill="var(--color-ink)"
+        opacity="0.16"
+        className="animate-[rise-sm_260ms_var(--ease-out-quint)_420ms_both]"
+      />
+      <rect
+        x="18"
+        y="40"
+        width="17"
+        height="2.5"
+        rx="1.25"
+        fill="var(--color-ink)"
+        opacity="0.16"
+        className="animate-[rise-sm_260ms_var(--ease-out-quint)_520ms_both]"
+      />
+    </svg>
   )
 }

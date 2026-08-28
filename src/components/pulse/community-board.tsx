@@ -121,9 +121,13 @@ export function CommunityBoard({ sidebar }: { sidebar: React.ReactNode }) {
               What people are sharing
             </h2>
             <span className="text-[13px] text-grey-light">
-              {state === "ready"
-                ? `${visible.length} account${visible.length !== 1 ? "s" : ""}`
-                : ""}
+              {state === "ready" ? (
+                // Re-mounted on every change so the tally acknowledges the
+                // filter rather than silently swapping underneath it.
+                <span key={visible.length} className="inline-block animate-rise-sm">
+                  {visible.length} account{visible.length !== 1 ? "s" : ""}
+                </span>
+              ) : null}
             </span>
           </div>
 
@@ -139,28 +143,37 @@ export function CommunityBoard({ sidebar }: { sidebar: React.ReactNode }) {
           {state === "loading" ? <BoardSkeleton /> : null}
           {state === "error" ? <BoardError onRetry={retry} /> : null}
 
-          {state === "ready" &&
-            (visible.length > 0 ? (
-              visible.map((submission) => (
-                <SubmissionCard
-                  key={submission.id}
-                  submission={submission}
-                  isSupported={supported.has(submission.id)}
-                  isPending={pending.has(submission.id)}
-                  onToggleSupport={toggleSupport}
-                />
-              ))
-            ) : (
-              <div className="px-5 py-15 text-center">
-                <div className="mb-3.5 text-4xl">💬</div>
-                <div className="mb-2 font-heading text-xl text-ink">
-                  No scenarios here yet.
+          {/* Keyed on the filter so changing it replays the entrance: a new
+              filter produces a genuinely different set, and watching it arrive
+              is what makes the control feel connected to the feed. Snapshot
+              updates leave the key alone, so a single new account slides in on
+              its own without the rest of the board flickering. */}
+          {state === "ready" && (
+            <div key={`${activeLab}|${activeStatus}|${sort}`}>
+              {visible.length > 0 ? (
+                visible.map((submission, index) => (
+                  <SubmissionCard
+                    key={submission.id}
+                    submission={submission}
+                    index={index}
+                    isSupported={supported.has(submission.id)}
+                    isPending={pending.has(submission.id)}
+                    onToggleSupport={toggleSupport}
+                  />
+                ))
+              ) : (
+                <div className="animate-rise px-5 py-15 text-center">
+                  <div className="mb-3.5 animate-drift text-4xl">💬</div>
+                  <div className="mb-2 font-heading text-xl text-ink">
+                    No scenarios here yet.
+                  </div>
+                  <p className="text-sm text-grey">
+                    Be the first to put something on record from this sector.
+                  </p>
                 </div>
-                <p className="text-sm text-grey">
-                  Be the first to put something on record from this sector.
-                </p>
-              </div>
-            ))}
+              )}
+            </div>
+          )}
         </div>
 
         {sidebar}

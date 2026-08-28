@@ -95,25 +95,33 @@ export function ModerationQueue() {
         ))}
       </div>
 
-      {loading ? (
-        <div className="h-40 animate-pulse rounded-lg border border-line bg-white motion-reduce:animate-none" />
-      ) : submissions.length === 0 ? (
-        <div className="px-5 py-15 text-center">
-          <div className="mb-3.5 text-4xl">📭</div>
-          <div className="mb-2 font-heading text-xl text-ink">
-            Nothing here right now.
+      {/* Keyed on the tab so switching queues replays the entrance — the same
+          gesture the public feed uses when its filter changes. */}
+      <div key={tab}>
+        {loading ? (
+          <div className="skeleton h-40 rounded-lg border border-line bg-white" />
+        ) : submissions.length === 0 ? (
+          <div className="animate-rise px-5 py-15 text-center">
+            <div className="mb-3.5 animate-drift text-4xl">📭</div>
+            <div className="mb-2 font-heading text-xl text-ink">
+              Nothing here right now.
+            </div>
+            <p className="text-sm text-grey">
+              {tab === "pending"
+                ? "Every submitted account has been reviewed."
+                : "No accounts in this state yet."}
+            </p>
           </div>
-          <p className="text-sm text-grey">
-            {tab === "pending"
-              ? "Every submitted account has been reviewed."
-              : "No accounts in this state yet."}
-          </p>
-        </div>
-      ) : (
-        submissions.map((submission) => (
-          <ModerationCard key={submission.id} submission={submission} />
-        ))
-      )}
+        ) : (
+          submissions.map((submission, index) => (
+            <ModerationCard
+              key={submission.id}
+              submission={submission}
+              index={index}
+            />
+          ))
+        )}
+      </div>
     </div>
   )
 }
