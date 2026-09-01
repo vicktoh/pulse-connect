@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
  * submissions, read contact details, or write moderation fields, however much
  * of this component they reverse-engineer.
  */
-export function AdminGate() {
+export function AdminGate({ children }: { children?: React.ReactNode }) {
   const { user, authReady, isAdmin, signOutUser } = useFirebaseAuth()
 
   if (!authReady) {
@@ -46,5 +46,5 @@ export function AdminGate() {
     )
   }
 
-  return <ModerationQueue />
+  return children ?? <ModerationQueue />
 }

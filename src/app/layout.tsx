@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Fraunces, Inter } from "next/font/google"
 
 import { FirebaseAuthProvider } from "@/lib/firebase/auth-provider"
+import { EventPlayerProvider } from "@/lib/events/event-player-provider"
 import "./globals.css"
 
 /** Inter carries all UI, prose, labels and controls. */
@@ -37,7 +38,9 @@ export default function RootLayout({
       className={`${inter.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <FirebaseAuthProvider>{children}</FirebaseAuthProvider>
+        <FirebaseAuthProvider>
+          <EventPlayerProvider>{children}</EventPlayerProvider>
+        </FirebaseAuthProvider>
       </body>
     </html>
   )

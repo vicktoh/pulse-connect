@@ -32,6 +32,41 @@ service cloud.firestore {
       return value is string && value.size() >= minLen && value.size() <= maxLen;
     }
 
+    function eventRef(eventId) {
+      return /databases/$(database)/documents/events/$(eventId);
+    }
+
+    function isEventLive(eventId) {
+      return get(eventRef(eventId)).data.status == 'live';
+    }
+
+    function isEventReadable(eventId) {
+      return get(eventRef(eventId)).data.status in ['live', 'closed'];
+    }
+
+    function participantRef(eventId, participantId) {
+      return /databases/$(database)/documents/events/$(eventId)/participants/$(participantId);
+    }
+
+    function commitmentRef(eventId, commitmentId) {
+      return /databases/$(database)/documents/events/$(eventId)/commitments/$(commitmentId);
+    }
+
+    function isEventParticipant(eventId) {
+      return isSignedIn() && exists(participantRef(eventId, request.auth.uid));
+    }
+
+    function isValidGameScore(gameId, score) {
+      return score is int
+        && score >= 0
+        && (
+          (gameId == 'follow-the-naira' && score <= 5000)
+          || (gameId == 'budget-or-bluff' && score <= 8000)
+          || (gameId == 'look-again' && score <= 1000)
+          || (gameId == 'four-pics-one-word' && score <= 3000)
+        );
+    }
+
     // The current visitor's ledger doc for a given submission.
     function supportRef(submissionId) {
       return /databases/$(database)/documents/supports/$(submissionId + '_' + request.auth.uid);
@@ -148,6 +183,270 @@ service cloud.firestore {
 
       allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
       allow update: if false;
+    }
+
+    // Event sessions are projected publicly at the venue. Only an admin may
+    // create or drive the live experience; attendees join and play below.
+    match /events/{eventId} {
+      // A join code is an exact document lookup. Event docs contain no private
+      // attendee data, so public get also lets the client distinguish a typo
+      // from a closed session. Listing remains restricted by status.
+      allow get: if true;
+      allow list: if isAdmin() || resource.data.status in ['live', 'closed'];
+
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly([
+          'name', 'code', 'status', 'activeExperience', 'activePromptId',
+          'trackerViewMode', 'trackerLab', 'trackerCommitmentId',
+          'createdAt', 'createdBy'
+        ])
+        && request.resource.data.keys().hasAll([
+          'name', 'code', 'status', 'activeExperience', 'activePromptId',
+          'trackerViewMode', 'trackerLab', 'trackerCommitmentId',
+          'createdAt', 'createdBy'
+        ])
+        && isText(request.resource.data.name, 1, 80)
+        && request.resource.data.code == eventId
+        && isText(request.resource.data.code, 4, 10)
+        && request.resource.data.status in ['draft', 'live']
+        && request.resource.data.activeExperience == 'lobby'
+        && request.resource.data.activePromptId == null
+        && request.resource.data.trackerViewMode == 'overview'
+        && request.resource.data.trackerLab == null
+        && request.resource.data.trackerCommitmentId == null
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.createdBy == request.auth.uid;
+
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'status', 'activeExperience', 'activePromptId',
+          'trackerViewMode', 'trackerLab', 'trackerCommitmentId', 'updatedAt'
+        ])
+        && isText(request.resource.data.name, 1, 80)
+        && request.resource.data.status in ['draft', 'live', 'closed']
+        && request.resource.data.activeExperience in ['lobby', 'poll', 'wordcloud', 'leaderboard', 'tracker', 'prediction']
+        && (request.resource.data.activePromptId == null || request.resource.data.activePromptId is string)
+        && request.resource.data.get('trackerViewMode', 'overview') in ['overview', 'lab', 'commitment', 'newest']
+        && (request.resource.data.get('trackerLab', null) == null || request.resource.data.get('trackerLab', null) in ['health', 'water', 'education', 'social-protection', 'debt-accountability'])
+        && (request.resource.data.get('trackerCommitmentId', null) == null || request.resource.data.get('trackerCommitmentId', null) is string)
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if isAdmin();
+
+      match /participants/{participantId} {
+        allow read: if isAdmin() || isEventReadable(eventId);
+
+        allow create, update: if isEventLive(eventId)
+          && isSignedIn()
+          && participantId == request.auth.uid
+          && request.resource.data.keys().hasOnly(['uid', 'name', 'joinedAt', 'lastSeenAt'])
+          && request.resource.data.keys().hasAll(['uid', 'name', 'joinedAt', 'lastSeenAt'])
+          && request.resource.data.uid == request.auth.uid
+          && isText(request.resource.data.name, 2, 40)
+          && request.resource.data.joinedAt == request.time
+          && request.resource.data.lastSeenAt == request.time;
+
+        allow delete: if false;
+      }
+
+      match /scores/{scoreId} {
+        allow read: if isAdmin() || isEventReadable(eventId);
+
+        allow create: if isEventLive(eventId)
+          && isEventParticipant(eventId)
+          && scoreId == request.auth.uid + '_' + request.resource.data.gameId
+          && request.resource.data.keys().hasOnly([
+            'participantId', 'participantName', 'gameId', 'score', 'playedAt'
+          ])
+          && request.resource.data.keys().hasAll([
+            'participantId', 'participantName', 'gameId', 'score', 'playedAt'
+          ])
+          && request.resource.data.participantId == request.auth.uid
+          && request.resource.data.participantName == get(participantRef(eventId, request.auth.uid)).data.name
+          && isValidGameScore(request.resource.data.gameId, request.resource.data.score)
+          && request.resource.data.playedAt == request.time;
+
+        allow update: if isEventLive(eventId)
+          && isEventParticipant(eventId)
+          && resource.data.participantId == request.auth.uid
+          && request.resource.data.participantId == resource.data.participantId
+          && request.resource.data.participantName == resource.data.participantName
+          && request.resource.data.gameId == resource.data.gameId
+          && request.resource.data.score >= resource.data.score
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['score', 'playedAt'])
+          && isValidGameScore(request.resource.data.gameId, request.resource.data.score)
+          && request.resource.data.playedAt == request.time;
+
+        allow delete: if false;
+      }
+
+      match /prompts/{promptId} {
+        allow read: if isAdmin() || isEventReadable(eventId);
+
+        allow create: if isAdmin()
+          && request.resource.data.keys().hasOnly([
+            'type', 'question', 'options', 'commitmentId', 'status',
+            'countdownEndsAt', 'createdAt', 'createdBy'
+          ])
+          && request.resource.data.keys().hasAll([
+            'type', 'question', 'options', 'commitmentId', 'status',
+            'countdownEndsAt', 'createdAt', 'createdBy'
+          ])
+          && request.resource.data.type in ['poll', 'wordcloud', 'prediction']
+          && isText(request.resource.data.question, 1, 180)
+          && request.resource.data.options is list
+          && request.resource.data.options.size() <= 6
+          && (request.resource.data.commitmentId == null || request.resource.data.commitmentId is string)
+          && (request.resource.data.countdownEndsAt == null || request.resource.data.countdownEndsAt is timestamp)
+          && (
+            request.resource.data.type != 'prediction'
+            || (
+              request.resource.data.commitmentId is string
+              && get(commitmentRef(eventId, request.resource.data.commitmentId)).data.status == 'published'
+              && get(commitmentRef(eventId, request.resource.data.commitmentId)).data.headline == true
+            )
+          )
+          && request.resource.data.status == 'active'
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.createdBy == request.auth.uid;
+
+        allow update, delete: if isAdmin();
+      }
+
+      match /responses/{responseId} {
+        allow read: if isAdmin() || isEventReadable(eventId);
+
+        allow create: if isEventLive(eventId)
+          && isEventParticipant(eventId)
+          && responseId == request.auth.uid + '_' + request.resource.data.promptId
+          && request.resource.data.keys().hasOnly([
+            'promptId', 'type', 'optionId', 'word', 'visible', 'createdAt'
+          ])
+          && request.resource.data.keys().hasAll([
+            'promptId', 'type', 'optionId', 'word', 'visible', 'createdAt'
+          ])
+          && request.resource.data.promptId == get(eventRef(eventId)).data.activePromptId
+          && request.resource.data.type in ['poll', 'wordcloud', 'prediction']
+          && get(/databases/$(database)/documents/events/$(eventId)/prompts/$(request.resource.data.promptId)).data.type == request.resource.data.type
+          && get(/databases/$(database)/documents/events/$(eventId)/prompts/$(request.resource.data.promptId)).data.status == 'active'
+          && request.resource.data.visible == true
+          && request.resource.data.createdAt == request.time
+          && (
+            (
+              request.resource.data.type in ['poll', 'prediction']
+              && isText(request.resource.data.optionId, 1, 20)
+              && request.resource.data.word == null
+              && (
+                request.resource.data.type != 'prediction'
+                || request.resource.data.optionId in ['stalled', 'progressing', 'completed']
+              )
+            )
+            || (
+              request.resource.data.type == 'wordcloud'
+              && request.resource.data.optionId == null
+              && isText(request.resource.data.word, 1, 32)
+            )
+          );
+
+        allow update: if isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['visible']);
+
+        allow delete: if isAdmin();
+      }
+
+      match /commitments/{commitmentId} {
+        allow get, list: if isAdmin() || resource.data.status in ['published', 'withdrawn'];
+
+        allow create: if isAdmin()
+          && request.resource.data.keys().hasOnly([
+            'lab', 'statement', 'leadActor', 'intendedOutcome', 'status',
+            'headline', 'revision', 'actualStatus', 'evidenceNote',
+            'evidenceSources', 'predictionSummary', 'publishedAt', 'verifiedAt',
+            'createdAt', 'updatedAt'
+          ])
+          && request.resource.data.keys().hasAll([
+            'lab', 'statement', 'leadActor', 'intendedOutcome', 'status',
+            'headline', 'revision', 'actualStatus', 'evidenceNote',
+            'evidenceSources', 'predictionSummary', 'publishedAt', 'verifiedAt',
+            'createdAt', 'updatedAt'
+          ])
+          && request.resource.data.lab in ['health', 'water', 'education', 'social-protection', 'debt-accountability']
+          && isText(request.resource.data.statement, 1, 180)
+          && isText(request.resource.data.leadActor, 0, 80)
+          && isText(request.resource.data.intendedOutcome, 0, 180)
+          && request.resource.data.status == 'draft'
+          && request.resource.data.headline == false
+          && request.resource.data.revision == 1
+          && request.resource.data.actualStatus == null
+          && request.resource.data.evidenceNote == ''
+          && request.resource.data.evidenceSources is list
+          && request.resource.data.evidenceSources.size() == 0
+          && request.resource.data.predictionSummary == null
+          && request.resource.data.publishedAt == null
+          && request.resource.data.verifiedAt == null
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.updatedAt == request.time;
+
+        allow update: if isAdmin()
+          && request.resource.data.keys().hasOnly([
+            'lab', 'statement', 'leadActor', 'intendedOutcome', 'status',
+            'headline', 'revision', 'actualStatus', 'evidenceNote',
+            'evidenceSources', 'predictionSummary', 'publishedAt', 'verifiedAt',
+            'createdAt', 'updatedAt'
+          ])
+          && request.resource.data.lab in ['health', 'water', 'education', 'social-protection', 'debt-accountability']
+          && isText(request.resource.data.statement, 1, 180)
+          && isText(request.resource.data.leadActor, 0, 80)
+          && isText(request.resource.data.intendedOutcome, 0, 180)
+          && request.resource.data.status in ['draft', 'review', 'published', 'withdrawn']
+          && (
+            request.resource.data.status == 'draft'
+            || (
+              isText(request.resource.data.leadActor, 1, 80)
+              && isText(request.resource.data.intendedOutcome, 1, 180)
+            )
+          )
+          && request.resource.data.headline is bool
+          && (request.resource.data.status == 'published' || request.resource.data.headline == false)
+          && request.resource.data.revision is int
+          && request.resource.data.revision >= resource.data.revision
+          && request.resource.data.evidenceNote is string
+          && request.resource.data.evidenceNote.size() <= 600
+          && request.resource.data.evidenceSources is list
+          && request.resource.data.evidenceSources.size() <= 8
+          && (
+            request.resource.data.actualStatus == null
+            || (
+              request.resource.data.actualStatus in ['stalled', 'progressing', 'completed']
+              && isText(request.resource.data.evidenceNote, 1, 600)
+              && request.resource.data.evidenceSources.size() >= 1
+              && request.resource.data.evidenceSources[0] is string
+              && request.resource.data.evidenceSources[0].matches('^https?://.+')
+            )
+          )
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedAt == request.time;
+
+        allow delete: if isAdmin() && resource.data.status == 'draft';
+
+        match /revisions/{revisionId} {
+          allow get, list: if isAdmin()
+            || get(commitmentRef(eventId, commitmentId)).data.status in ['published', 'withdrawn'];
+          allow create: if isAdmin();
+          allow update, delete: if false;
+        }
+      }
+
+      // Rapporteur identity and withdrawal reasons are deliberately separated
+      // from public commitment documents so public tracker queries cannot leak them.
+      match /commitmentMeta/{commitmentId} {
+        allow read, create, update, delete: if isAdmin();
+      }
+
+      // The single-producer lease is private operational state.
+      match /control/{controlId} {
+        allow read, create, update, delete: if isAdmin();
+      }
     }
 
     match /{document=**} {

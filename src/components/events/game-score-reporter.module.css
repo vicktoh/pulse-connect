@@ -1,0 +1,29 @@
+.reporter {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: min(640px, 100%);
+  margin: 20px auto;
+  padding: 12px 14px;
+  color: #061b34;
+  background: #e4fbff;
+  border: 2px solid #061b34;
+  border-radius: 6px;
+  box-shadow: 4px 4px 0 #13c8d5;
+  font-family: var(--font-inter), sans-serif;
+  text-align: left;
+}
+.icon { display: grid; width: 34px; height: 34px; place-items: center; color: #061b34; background: #9ce13b; border: 2px solid #061b34; border-radius: 50%; }
+.icon svg { width: 17px; }
+.reporter div { display: grid; line-height: 1.15; }
+.reporter strong { font-size: 0.74rem; }
+.reporter small { margin-top: 3px; color: #607186; font-size: 0.62rem; }
+.reporter a { padding: 8px 10px; color: #061b34; background: #f5aa2c; border: 1px solid #061b34; border-radius: 3px; font-size: 0.6rem; font-weight: 900; text-decoration: none; text-transform: uppercase; }
+.spin { animation: spin 900ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 560px) {
+  .reporter { grid-template-columns: auto 1fr; }
+  .reporter a { grid-column: 1 / -1; text-align: center; }
+}
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }

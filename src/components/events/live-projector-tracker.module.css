@@ -1,0 +1,334 @@
+.trackerView,
+.predictionView {
+  position: relative;
+  display: flex;
+  min-height: calc(100vh - 185px);
+  flex: 1;
+  flex-direction: column;
+  padding: clamp(26px, 3vw, 52px) 0 0;
+  overflow: hidden;
+}
+
+.trackerHeading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 40px;
+  margin-bottom: clamp(22px, 3vw, 44px);
+}
+
+.trackerHeading > div > span,
+.predictionKicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #07569c;
+  font-size: clamp(11px, 0.9vw, 16px);
+  font-weight: 950;
+  letter-spacing: 0.15em;
+}
+
+.trackerHeading svg,
+.predictionKicker svg {
+  width: 1.25em;
+}
+
+.trackerHeading h1,
+.predictionView h1 {
+  max-width: 1200px;
+  margin: 10px 0 0;
+  font-family: var(--font-fraunces), serif;
+  font-size: clamp(44px, 5.8vw, 92px);
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+}
+
+.trackerHeading h1 em {
+  color: #089aa5;
+}
+
+.trackerCount {
+  display: grid;
+  min-width: 160px;
+  border: 3px solid #061b34;
+  background: #9ce13b;
+  color: #061b34;
+  padding: 16px 22px;
+  text-align: center;
+  box-shadow: 7px 7px 0 #061b34;
+}
+
+.trackerCount strong {
+  font-family: var(--font-fraunces), serif;
+  font-size: clamp(38px, 4vw, 64px);
+  line-height: 0.9;
+}
+
+.trackerCount span {
+  margin-top: 7px;
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: 0.12em;
+}
+
+.labGrid {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(12px, 1.3vw, 24px);
+}
+
+.labCard {
+  --lab-accent: #13c8d5;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border: 3px solid #061b34;
+  background: #fff;
+  color: #061b34;
+  padding: clamp(16px, 1.7vw, 28px);
+  box-shadow: 8px 8px 0 var(--lab-accent);
+}
+
+.labCard > span {
+  align-self: flex-start;
+  background: var(--lab-accent);
+  padding: 7px 9px;
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+}
+
+.labCard strong {
+  margin: 20px 0 6px;
+  font-family: var(--font-fraunces), serif;
+  font-size: clamp(46px, 4.3vw, 76px);
+  line-height: 0.9;
+}
+
+.labCard small {
+  color: #667b8d;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.labCard p {
+  margin: auto 0 0;
+  padding-top: 22px;
+  border-top: 1px solid #d4dde3;
+  font-family: var(--font-fraunces), serif;
+  font-size: clamp(15px, 1.35vw, 23px);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.commitmentGrid {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(16px, 2vw, 30px);
+}
+
+.commitmentCard {
+  --lab-accent: #13c8d5;
+  display: grid;
+  min-height: 0;
+  grid-template-rows: auto 1fr auto;
+  border: 3px solid #061b34;
+  border-top: 11px solid var(--lab-accent);
+  background: #fff;
+  color: #061b34;
+  padding: clamp(17px, 2vw, 30px);
+  box-shadow: 8px 8px 0 #061b34;
+}
+
+.commitmentCard > span,
+.spotlight > span {
+  color: #07569c;
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+}
+
+.commitmentCard h2 {
+  align-self: center;
+  margin: 12px 0;
+  font-family: var(--font-fraunces), serif;
+  font-size: clamp(24px, 2.6vw, 46px);
+  line-height: 1.03;
+}
+
+.commitmentCard footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.commitmentCard footer div,
+.spotlightFacts div {
+  background: #eef1ee;
+  padding: 12px;
+}
+
+.commitmentCard footer small,
+.spotlightFacts dt {
+  display: block;
+  color: #667b8d;
+  font-size: 9px;
+  font-weight: 950;
+  letter-spacing: 0.1em;
+}
+
+.commitmentCard footer strong,
+.spotlightFacts dd {
+  display: block;
+  margin: 5px 0 0;
+  font-size: clamp(12px, 1vw, 17px);
+}
+
+.spotlight,
+.predictionStage {
+  --lab-accent: #13c8d5;
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: minmax(0, 1.35fr) minmax(330px, 0.65fr);
+  gap: clamp(26px, 5vw, 80px);
+  align-items: center;
+  border: 3px solid #061b34;
+  border-left: 15px solid var(--lab-accent);
+  background: #fff;
+  color: #061b34;
+  padding: clamp(28px, 4vw, 68px);
+  box-shadow: 12px 12px 0 #061b34;
+}
+
+.spotlight h2 {
+  margin: 20px 0 0;
+  font-family: var(--font-fraunces), serif;
+  font-size: clamp(42px, 5vw, 82px);
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+}
+
+.spotlightFacts {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+
+.spotlightFacts div {
+  border-left: 5px solid var(--lab-accent);
+  padding: 22px;
+}
+
+.spotlightFacts dd {
+  font-size: clamp(16px, 1.35vw, 24px);
+  line-height: 1.35;
+}
+
+.predictionView {
+  background: linear-gradient(135deg, #fff7eb 0 60%, #e8f7e1 60% 100%);
+  color: #061b34;
+  margin: 18px calc(clamp(32px, 5vw, 92px) * -1) -72px;
+  padding: clamp(32px, 4vw, 64px) clamp(42px, 6vw, 110px) 72px;
+}
+
+.predictionStage {
+  margin-top: 20px;
+}
+
+.predictionCopy h1 {
+  font-size: clamp(38px, 4.4vw, 72px);
+}
+
+.predictionCopy p {
+  margin: 22px 0 0;
+  color: #52667d;
+  font-size: clamp(17px, 1.35vw, 23px);
+  font-weight: 750;
+}
+
+.predictionResults {
+  display: grid;
+  gap: 21px;
+}
+
+.resultRow p {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  margin: 0 0 7px;
+  font-size: clamp(15px, 1.2vw, 21px);
+  font-weight: 900;
+}
+
+.resultRow p strong {
+  font-family: var(--font-fraunces), serif;
+  font-size: clamp(28px, 3vw, 48px);
+  line-height: 0.8;
+}
+
+.resultRow > i {
+  display: block;
+  height: 16px;
+  border: 2px solid #061b34;
+  background: #dbe4e6;
+}
+
+.resultRow > i > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #13c8d5, #9ce13b, #f5aa2c);
+  transition: width 300ms ease;
+}
+
+.resultRow small {
+  display: block;
+  margin-top: 5px;
+  color: #6b7d8d;
+  font-weight: 800;
+}
+
+.predictionTotal {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #07569c;
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0.12em;
+}
+
+.emptyTracker {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  text-align: center;
+}
+
+.emptyTracker svg {
+  width: 62px;
+  height: 62px;
+  color: #089aa5;
+}
+
+.emptyTracker h2 {
+  margin: 15px 0 4px;
+  font-family: var(--font-fraunces), serif;
+  font-size: 42px;
+}
+
+@media (max-width: 1050px) {
+  .labGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .labCard:nth-child(n + 4) {
+    display: none;
+  }
+}

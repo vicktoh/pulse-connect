@@ -118,6 +118,33 @@ beforeEach(async () => {
       authorUid: "seed",
       createdAt: new Date(),
     })
+    await setDoc(doc(db, "events/PULSE26"), {
+      name: "PULSE Summit Live",
+      code: "PULSE26",
+      status: "live",
+      activeExperience: "poll",
+      activePromptId: "poll-1",
+      createdAt: new Date(),
+      createdBy: "admin-1",
+    })
+    await setDoc(doc(db, "events/PULSE26/prompts/poll-1"), {
+      type: "poll",
+      question: "What should budgets prioritise?",
+      options: [
+        { id: "option-1", label: "Health" },
+        { id: "option-2", label: "Education" },
+      ],
+      status: "active",
+      createdAt: new Date(),
+      createdBy: "admin-1",
+    })
+    await setDoc(doc(db, "events/PULSE26/scores/seed_follow-the-naira"), {
+      participantId: "seed",
+      participantName: "First Player",
+      gameId: "follow-the-naira",
+      score: 700,
+      playedAt: new Date(),
+    })
   })
 })
 
@@ -126,6 +153,15 @@ const anonB = () => env.authenticatedContext("visitor-b").firestore()
 const admin = () =>
   env.authenticatedContext("admin-1", { admin: true }).firestore()
 const guest = () => env.unauthenticatedContext().firestore()
+
+async function joinEvent(db, uid = "visitor-a", name = "Ada K.") {
+  await setDoc(doc(db, `events/PULSE26/participants/${uid}`), {
+    uid,
+    name,
+    joinedAt: serverTimestamp(),
+    lastSeenAt: serverTimestamp(),
+  })
+}
 
 describe("public read access", () => {
   it("anyone may read an approved submission", async () => {
@@ -502,5 +538,178 @@ describe("moderation", () => {
 
   it("an admin may delete a submission", async () => {
     await assertSucceeds(deleteDoc(doc(admin(), "submissions/approved-1")))
+  })
+})
+
+describe("live event platform", () => {
+  it("lets the venue screen read a live session and leaderboard", async () => {
+    await assertSucceeds(getDoc(doc(guest(), "events/PULSE26")))
+    await assertSucceeds(getDocs(collection(guest(), "events/PULSE26/scores")))
+  })
+
+  it("lets an anonymous attendee join under their own uid", async () => {
+    await assertSucceeds(joinEvent(anon()))
+  })
+
+  it("rejects creating a participant under another uid", async () => {
+    await assertFails(joinEvent(anon(), "visitor-b"))
+  })
+
+  it("accepts a participant's valid best score", async () => {
+    const db = anon()
+    await joinEvent(db)
+    await assertSucceeds(setDoc(doc(db, "events/PULSE26/scores/visitor-a_look-again"), {
+      participantId: "visitor-a",
+      participantName: "Ada K.",
+      gameId: "look-again",
+      score: 850,
+      playedAt: serverTimestamp(),
+    }))
+  })
+
+  it("rejects an impossible game score", async () => {
+    const db = anon()
+    await joinEvent(db)
+    await assertFails(setDoc(doc(db, "events/PULSE26/scores/visitor-a_look-again"), {
+      participantId: "visitor-a",
+      participantName: "Ada K.",
+      gameId: "look-again",
+      score: 50000,
+      playedAt: serverTimestamp(),
+    }))
+  })
+
+  it("accepts one response to the active poll", async () => {
+    const db = anon()
+    await joinEvent(db)
+    await assertSucceeds(setDoc(doc(db, "events/PULSE26/responses/visitor-a_poll-1"), {
+      promptId: "poll-1",
+      type: "poll",
+      optionId: "option-1",
+      word: null,
+      visible: true,
+      createdAt: serverTimestamp(),
+    }))
+  })
+
+  it("does not let an attendee drive the venue screen", async () => {
+    await assertFails(setDoc(doc(anon(), "events/PULSE26"), {
+      activeExperience: "leaderboard",
+      updatedAt: serverTimestamp(),
+    }, { merge: true }))
+  })
+
+  it("lets an admin create a new live session", async () => {
+    await assertSucceeds(setDoc(doc(admin(), "events/PULSE27"), {
+      name: "PULSE Summit Evening",
+      code: "PULSE27",
+      status: "live",
+      activeExperience: "lobby",
+      activePromptId: null,
+      trackerViewMode: "overview",
+      trackerLab: null,
+      trackerCommitmentId: null,
+      createdAt: serverTimestamp(),
+      createdBy: "admin-1",
+    }))
+  })
+
+  it("publishes commitments while keeping rapporteur metadata private", async () => {
+    const publicCommitment = {
+      lab: "water",
+      statement: "Publish monthly water-point functionality data.",
+      leadActor: "State Water Agency",
+      intendedOutcome: "A public dashboard updated every month.",
+      status: "published",
+      headline: true,
+      revision: 1,
+      actualStatus: null,
+      evidenceNote: "",
+      evidenceSources: [],
+      predictionSummary: null,
+      publishedAt: new Date(),
+      verifiedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, "events/PULSE26/commitments/water-1"), publicCommitment)
+      await setDoc(doc(db, "events/PULSE26/commitmentMeta/water-1"), {
+        rapporteurName: "Nkiru",
+        withdrawnReason: null,
+      })
+    })
+    await assertSucceeds(getDoc(doc(guest(), "events/PULSE26/commitments/water-1")))
+    await assertFails(getDoc(doc(guest(), "events/PULSE26/commitmentMeta/water-1")))
+    await assertSucceeds(getDoc(doc(admin(), "events/PULSE26/commitmentMeta/water-1")))
+  })
+
+  it("locks an attendee's first Promise or Progress prediction", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, "events/PULSE26/commitments/headline-1"), {
+        lab: "health",
+        statement: "Publish quarterly primary-health releases.",
+        leadActor: "Federal Ministry of Health",
+        intendedOutcome: "Four public release reports by the next Summit.",
+        status: "published",
+        headline: true,
+        revision: 1,
+        actualStatus: null,
+        evidenceNote: "",
+        evidenceSources: [],
+        predictionSummary: null,
+        publishedAt: new Date(),
+        verifiedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      await setDoc(doc(db, "events/PULSE26/prompts/prediction-1"), {
+        type: "prediction",
+        question: "Promise or Progress?",
+        options: [
+          { id: "stalled", label: "Will stall" },
+          { id: "progressing", label: "Will progress" },
+          { id: "completed", label: "Will be completed" },
+        ],
+        commitmentId: "headline-1",
+        countdownEndsAt: null,
+        status: "active",
+        createdAt: new Date(),
+        createdBy: "admin-1",
+      })
+      await setDoc(doc(db, "events/PULSE26"), {
+        name: "PULSE Summit Live",
+        code: "PULSE26",
+        status: "live",
+        activeExperience: "prediction",
+        activePromptId: "prediction-1",
+        trackerViewMode: "overview",
+        trackerLab: null,
+        trackerCommitmentId: null,
+        createdAt: new Date(),
+        createdBy: "admin-1",
+      })
+    })
+    const db = anon()
+    await joinEvent(db)
+    const responseRef = doc(db, "events/PULSE26/responses/visitor-a_prediction-1")
+    await assertSucceeds(setDoc(responseRef, {
+      promptId: "prediction-1",
+      type: "prediction",
+      optionId: "progressing",
+      word: null,
+      visible: true,
+      createdAt: serverTimestamp(),
+    }))
+    await assertFails(setDoc(responseRef, {
+      promptId: "prediction-1",
+      type: "prediction",
+      optionId: "completed",
+      word: null,
+      visible: true,
+      createdAt: serverTimestamp(),
+    }))
   })
 })

@@ -668,25 +668,41 @@
 
 .questionStage {
   display: grid;
-  grid-template-columns: 205px 1fr;
+  grid-template-columns: 220px minmax(0, 1fr);
   gap: clamp(18px, 3vw, 32px);
   align-items: center;
   margin-bottom: 26px;
 }
 
-.characterCard {
+.promptVisual {
   position: relative;
-  display: grid;
-  gap: 6px;
-  padding: 20px;
-  background: color-mix(in srgb, var(--round-colour) 13%, white);
-  border: 2px solid var(--round-colour);
-  border-radius: 14px;
-  box-shadow: 7px 7px 0 color-mix(in srgb, var(--round-colour) 30%, transparent);
+  display: flex;
+  flex-direction: column;
+  justify-self: center;
+  width: min(100%, 210px);
+  overflow: hidden;
+  background: #001126;
+  border: 3px solid #001126;
+  border-radius: 16px;
+  box-shadow: 7px 7px 0 var(--round-colour);
   transform: rotate(-1.8deg);
 }
 
-.characterCard::after {
+.promptArt {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 420 / 716;
+  overflow: hidden;
+  background: #e8eef4;
+}
+
+.promptArt > img {
+  object-fit: contain;
+  animation: character-pop 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.promptVisual::after {
   content: "ON THE LINE";
   position: absolute;
   top: -10px;
@@ -700,14 +716,16 @@
   transform: rotate(4deg);
 }
 
-.characterEmoji {
-  font-size: 54px;
-  filter: drop-shadow(3px 4px 0 rgb(0 31 64 / 0.15));
-  animation: character-pop 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+.characterCaption {
+  position: relative;
+  z-index: 2;
+  padding: 11px 12px 12px;
+  color: #fff;
+  background: #001126;
 }
 
-.characterCard strong { display: block; color: #001f40; font-family: var(--font-fraunces), serif; font-size: 18px; }
-.characterCard small { display: block; margin-top: 3px; color: #5a6b85; font-size: 9px; line-height: 1.35; }
+.characterCaption strong { display: block; font-family: var(--font-fraunces), serif; font-size: 18px; }
+.characterCaption small { display: block; margin-top: 3px; color: rgb(255 255 255 / 0.76); font-size: 9px; line-height: 1.35; }
 
 .roundKicker {
   color: #004080;
@@ -718,17 +736,15 @@
 }
 
 .questionCopy h2 {
-  max-width: 520px;
-  margin: 7px 0 10px;
+  max-width: 610px;
+  margin: 8px 0 0;
   color: #001f40;
   font-family: var(--font-fraunces), serif;
-  font-size: clamp(30px, 5vw, 47px);
+  font-size: clamp(29px, 4.3vw, 43px);
   font-weight: 700;
-  letter-spacing: -0.045em;
-  line-height: 0.98;
+  letter-spacing: -0.035em;
+  line-height: 1.06;
 }
-
-.questionCopy p { color: #5a6b85; font-size: 14px; line-height: 1.65; }
 
 .answerGrid {
   display: grid;
@@ -739,14 +755,14 @@
 .answerGrid button {
   position: relative;
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-rows: auto auto;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto auto;
   align-items: center;
   gap: 3px 10px;
-  min-height: 130px;
-  padding: 18px 62px 18px 18px;
+  min-height: 246px;
+  padding: 0 0 14px;
   overflow: hidden;
-  color: #fff;
+  color: #001f40;
   text-align: left;
   cursor: pointer;
   border: 4px solid #001126;
@@ -755,11 +771,23 @@
   transition: 130ms ease;
 }
 
-.buzzerBlue { background: linear-gradient(145deg, #0756d6, #004080); }
-.buzzerRed { background: linear-gradient(145deg, #ff5547, #c52218); }
+.answerOption {
+  background:
+    linear-gradient(135deg, rgb(19 200 213 / 0.08), transparent 45%),
+    #f7fafc;
+}
+
+.answerOption::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: 0 0 auto;
+  height: 5px;
+  background: linear-gradient(90deg, #f0a030, #13c8d5, #a960ff);
+}
 
 .answerGrid button:hover {
-  filter: brightness(1.1) saturate(1.15);
+  filter: brightness(1.03) saturate(1.08);
   transform: translateY(-3px) rotate(-0.5deg);
   box-shadow: 0 11px 0 #001126;
 }
@@ -780,11 +808,28 @@
   font-weight: 1000;
   background: #fff;
   border-radius: 50%;
+  box-shadow: 0 0 0 2px #001f40;
+  margin: 12px 0 0 14px;
 }
 
-.answerEmoji { grid-row: span 2; font-size: 29px; }
-.answerGrid strong { align-self: end; font-size: 15px; line-height: 1.15; }
-.answerGrid small { align-self: start; color: rgb(255 255 255 / 0.7); font-size: 9px; line-height: 1.3; }
+.answerVisual {
+  position: relative;
+  grid-row: 1;
+  grid-column: 1 / -1;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-width: 0;
+  overflow: hidden;
+  background: #e8eef4;
+  border-bottom: 3px solid #001126;
+}
+
+.answerVisual > img {
+  object-fit: cover;
+}
+
+.answerGrid strong { align-self: end; margin: 12px 62px 0 0; font-size: 15px; line-height: 1.15; }
+.answerGrid small { align-self: start; margin-right: 62px; color: #60728b; font-size: 9px; line-height: 1.3; }
 
 .answerGrid i {
   position: absolute;
@@ -1109,11 +1154,37 @@
   .hud { grid-template-columns: 1fr auto; }
   .fundsMeter { grid-row: 2; grid-column: 1 / -1; justify-self: stretch; }
   .timer { grid-row: 1; grid-column: 2; }
-  .questionStage { grid-template-columns: 1fr; gap: 18px; }
-  .characterCard { grid-template-columns: auto 1fr; align-items: center; }
-  .characterEmoji { font-size: 42px; }
-  .answerGrid { grid-template-columns: 1fr; gap: 12px; }
-  .answerGrid button { min-height: 112px; }
+  .questionStage { grid-template-columns: min(42vw, 155px) minmax(0, 1fr); gap: 15px; margin-bottom: 20px; }
+  .promptVisual { width: min(100%, 155px); border-width: 2px; box-shadow: 5px 5px 0 var(--round-colour); }
+  .characterCaption { padding: 8px 9px 9px; }
+  .characterCaption strong { font-size: 14px; line-height: 1; }
+  .characterCaption small { font-size: 7px; }
+  .questionCopy h2 { margin-top: 6px; font-size: clamp(22px, 6.6vw, 30px); line-height: 1.08; }
+  .roundKicker { font-size: 7px; }
+  .answerGrid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .answerGrid button {
+    grid-template-columns: 24px 1fr;
+    grid-template-rows: auto auto;
+    gap: 8px 5px;
+    min-height: 148px;
+    padding: 0 8px 10px;
+    border-width: 3px;
+    border-radius: 13px;
+    box-shadow: 0 6px 0 #001126;
+  }
+  .answerVisual {
+    grid-row: 1;
+    grid-column: 1 / -1;
+    width: calc(100% + 16px);
+    margin-left: -8px;
+    aspect-ratio: 16 / 9;
+    background: #e8eef4;
+    border-right: 0;
+    border-bottom: 3px solid #001126;
+  }
+  .answerLetter { grid-row: 2; grid-column: 1; width: 22px; height: 22px; margin: 0; font-size: 9px; }
+  .answerGrid strong { grid-row: 2; grid-column: 2; align-self: center; margin: 0; font-size: 11px; }
+  .answerGrid small, .answerGrid i { display: none; }
   .verdictCard { grid-template-columns: 64px 1fr; gap: 10px 14px; padding: 20px 15px; }
   .verdictEmoji { font-size: 50px; }
   .verdictCopy h3 { padding-right: 40px; font-size: 22px; }

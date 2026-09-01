@@ -1,0 +1,33 @@
+.rapporteur {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: -10px 0 14px;
+  color: #60758b;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rapporteur svg {
+  width: 14px;
+  height: 14px;
+}
+
+.privateReason {
+  margin: 10px 0 0;
+  border: 1px dashed #9b3323;
+  background: #fff0eb;
+  padding: 9px 11px;
+  color: #732718;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.privateReason strong {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}

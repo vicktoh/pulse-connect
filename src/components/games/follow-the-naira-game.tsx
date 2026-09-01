@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 
 import styles from "./follow-the-naira-game.module.css"
+import { GameScoreReporter } from "@/components/events/game-score-reporter"
 
 type TeamId = "health" | "education" | "wash" | "social"
 type GameScreen = "lobby" | "question" | "results"
@@ -31,7 +32,8 @@ type Answer = {
   id: string
   label: string
   sublabel: string
-  emoji: string
+  image: string
+  imageAlt: string
   fundsDelta: number
   trustDelta: number
   impactDelta: number
@@ -44,14 +46,16 @@ type Answer = {
 
 type Round = {
   kicker: string
-  title: string
   situation: string
-  character: string
+  image: string
+  imageAlt: string
   characterName: string
   characterRole: string
   colour: string
   answers: [Answer, Answer]
 }
+
+const ROUND_SECONDS = 10
 
 const TEAMS: Team[] = [
   {
@@ -91,169 +95,165 @@ const TEAMS: Team[] = [
 const ROUNDS: Round[] = [
   {
     kicker: "Gate 01 · Fund release",
-    title: "The disappearing timetable",
-    situation:
-      "₦500m has been approved for a rural health centre upgrade. The release schedule, however, has gone on an unplanned holiday.",
-    character: "🧑🏾‍💼",
+    situation: "₦500m is approved, but nobody can find the release timetable.",
     characterName: "Madam Cashflow",
     characterRole: "Keeper of the treasury gate",
+    image: "/games/follow-the-naira/round-1-prompt.webp",
+    imageAlt: "A treasury official searching through files for a missing fund release timetable",
     colour: "#f0a030",
     answers: [
       {
         id: "publish-release",
-        label: "Publish & release",
-        sublabel: "Set milestones and send the first tranche",
-        emoji: "📢",
+        label: "Publish the schedule",
+        sublabel: "Release against public milestones",
+        image: "/games/follow-the-naira/round-1-publish-landscape.webp",
+        imageAlt: "Officials publishing a clear release schedule on a public notice board",
         fundsDelta: -8,
         trustDelta: 18,
         impactDelta: 14,
         points: 520,
         verdict: "smart",
         headline: "The calendar has been located!",
-        explanation:
-          "A public release schedule gives implementers certainty and lets citizens see delays before they become excuses.",
-        hostLine: "Transparency enters the chat wearing sensible shoes.",
+        explanation: "Public milestones expose delays before they become excuses.",
+        hostLine: "Transparency has entered the chat.",
       },
       {
         id: "surprise-release",
-        label: "Keep it mysterious",
-        sublabel: "Release whenever the fiscal mood feels right",
-        emoji: "🎩",
+        label: "Keep it flexible",
+        sublabel: "Release whenever cash appears",
+        image: "/games/follow-the-naira/round-1-flexible-landscape.webp",
+        imageAlt: "An official informally deciding when to release funds from a stack of files",
         fundsDelta: -62,
         trustDelta: -15,
         impactDelta: -12,
         points: 110,
         verdict: "chaos",
         headline: "A surprise nobody ordered",
-        explanation:
-          "Unpredictable releases stall procurement, raise costs and make an approved project look imaginary at the last mile.",
-        hostLine: "The budget is now playing hide-and-seek. It is winning.",
+        explanation: "Unpredictable releases create delays and raise project costs.",
+        hostLine: "The budget is playing hide-and-seek.",
       },
     ],
   },
   {
     kicker: "Gate 02 · Procurement",
-    title: "A cousin with a PowerPoint",
-    situation:
-      "A very confident vendor says competitive bidding is stressful. He can supply everything tomorrow—and he knows somebody who knows somebody.",
-    character: "🕺🏾",
+    situation: "A confident vendor promises next-day delivery, without competitive bidding.",
     characterName: "Chief Express Delivery",
     characterRole: "Vendor, optimist, networking enthusiast",
+    image: "/games/follow-the-naira/round-2-prompt.webp",
+    imageAlt: "A confident vendor presenting a flashy next-day delivery pitch",
     colour: "#ff4d3d",
     answers: [
       {
         id: "open-tender",
-        label: "Open the tender",
-        sublabel: "Compare bids and publish the winner",
-        emoji: "🔎",
+        label: "Run an open bid",
+        sublabel: "Compare prices. Publish the winner.",
+        image: "/games/follow-the-naira/round-2-open-bid-landscape.webp",
+        imageAlt: "A procurement panel comparing several vendor bids around a table",
         fundsDelta: -14,
         trustDelta: 16,
         impactDelta: 18,
         points: 560,
         verdict: "smart",
         headline: "Competition brings receipts",
-        explanation:
-          "Clear specifications and comparable bids reduce inflated prices while creating a trail that auditors and citizens can follow.",
-        hostLine: "Chief Express will have to express himself in writing.",
+        explanation: "Comparable bids improve value and leave a public trail.",
+        hostLine: "Chief Express must now express himself in writing.",
       },
       {
         id: "cousin-contract",
-        label: "Trust the vibes",
-        sublabel: "Paperwork is temporary; connections are forever",
-        emoji: "🤝",
+        label: "Take the fast deal",
+        sublabel: "Skip bidding. Prioritize speed.",
+        image: "/games/follow-the-naira/round-2-fast-deal-landscape.webp",
+        imageAlt: "Two people sealing a quick procurement deal with a handshake",
         fundsDelta: -118,
         trustDelta: -24,
         impactDelta: -18,
         points: 80,
         verdict: "chaos",
         headline: "The vibes were not audited",
-        explanation:
-          "A closed deal makes overpricing easier and accountability harder. Fast promises can create very slow services.",
-        hostLine: "The projector was excellent. The value for money was not.",
+        explanation: "Skipping comparison hides whether the price is fair.",
+        hostLine: "Fast delivery; slower questions about value.",
       },
     ],
   },
   {
     kicker: "Gate 03 · Delivery",
-    title: "The almost-finished clinic",
-    situation:
-      "The contractor reports 90% completion. The roof disagrees, the windows are philosophical, and the site photo is from a very creative angle.",
-    character: "👷🏾‍♀️",
+    situation: "The report says 90% complete. The roof and windows disagree.",
     characterName: "Engineer Nearly-There",
     characterRole: "Professional percentage announcer",
+    image: "/games/follow-the-naira/round-3-prompt.webp",
+    imageAlt: "An engineer presenting a nearly finished clinic with an incomplete roof and windows",
     colour: "#13c8d5",
     answers: [
       {
         id: "verify-site",
-        label: "Verify before paying",
-        sublabel: "Independent inspection plus geo-tagged evidence",
-        emoji: "📍",
+        label: "Inspect the site",
+        sublabel: "Verify milestones before payment",
+        image: "/games/follow-the-naira/round-3-inspect-landscape.webp",
+        imageAlt: "An inspection team documenting construction progress at the clinic",
         fundsDelta: -10,
         trustDelta: 20,
         impactDelta: 22,
         points: 610,
         verdict: "smart",
         headline: "The roof has entered the evidence",
-        explanation:
-          "Milestone verification links payment to real work, protects the remaining funds and catches problems while they can still be fixed.",
-        hostLine: "A wide-angle lens is no longer an infrastructure policy.",
+        explanation: "Site evidence links payment to work that actually exists.",
+        hostLine: "A camera angle is not infrastructure policy.",
       },
       {
         id: "pay-report",
-        label: "Pay the percentage",
-        sublabel: "If the report says 90%, who are we to argue?",
-        emoji: "🧾",
+        label: "Trust the report",
+        sublabel: "Pay against submitted paperwork",
+        image: "/games/follow-the-naira/round-3-report-landscape.webp",
+        imageAlt: "An official approving payment after reviewing a project report at a desk",
         fundsDelta: -96,
         trustDelta: -20,
         impactDelta: -25,
         points: 70,
         verdict: "chaos",
         headline: "100% paid. 62% building.",
-        explanation:
-          "Paying against paperwork alone removes leverage and transfers construction risk to the community waiting for the service.",
-        hostLine: "The missing windows send their warm regards.",
+        explanation: "Paper-only approval transfers construction risk to citizens.",
+        hostLine: "The missing windows send their regards.",
       },
     ],
   },
   {
     kicker: "Final gate · Citizen check",
-    title: "The opening-day illusion",
-    situation:
-      "The ribbon is ready. The cameras are ready. The clinic has beds—but no drugs, staffing plan or public number for reporting problems.",
-    character: "👩🏾‍🍼",
+    situation: "The clinic has beds, but no drugs, staff plan or feedback line.",
     characterName: "Amina from Gidan Ruwa",
     characterRole: "Citizen and undefeated question-asker",
+    image: "/games/follow-the-naira/round-4-prompt.webp",
+    imageAlt: "A citizen examining a newly opened clinic that has beds but lacks essential services",
     colour: "#a960ff",
     answers: [
       {
         id: "service-check",
         label: "Test the service",
-        sublabel: "Stock, staff, feedback line and public scorecard",
-        emoji: "✅",
+        sublabel: "Check stock, staff and feedback",
+        image: "/games/follow-the-naira/round-4-service-test-landscape.webp",
+        imageAlt: "Citizens and staff checking medicine, staffing and a feedback desk inside the clinic",
         fundsDelta: -12,
         trustDelta: 24,
         impactDelta: 28,
         points: 680,
         verdict: "smart",
         headline: "From building delivered to service working",
-        explanation:
-          "Last-mile accountability measures whether people can actually use the service—not merely whether a ribbon can be cut.",
-        hostLine: "The ribbon may proceed. It has passed its performance review.",
+        explanation: "A finished building only matters when the service works.",
+        hostLine: "The ribbon has passed its performance review.",
       },
       {
         id: "cut-ribbon",
-        label: "Cut first, ask later",
-        sublabel: "A dramatic ribbon can distract from many things",
-        emoji: "✂️",
+        label: "Cut the ribbon",
+        sublabel: "Open now. Complete details later.",
+        image: "/games/follow-the-naira/round-4-ribbon-landscape.webp",
+        imageAlt: "Officials posing for a ceremonial ribbon cutting at the clinic entrance",
         fundsDelta: -74,
         trustDelta: -26,
         impactDelta: -32,
         points: 60,
         verdict: "chaos",
         headline: "Beautiful launch. Invisible service.",
-        explanation:
-          "Infrastructure without staff, supplies and citizen feedback is an output—not an outcome. The last mile remains broken.",
-        hostLine: "Ten points for photography. Zero points for paracetamol.",
+        explanation: "Opening without staff or supplies delivers a building, not care.",
+        hostLine: "Great photos. Still waiting for paracetamol.",
       },
     ],
   },
@@ -266,6 +266,17 @@ const CONFETTI = Array.from({ length: 28 }, (_, index) => ({
     index % 5
   ],
 }))
+
+function createRoundSwaps() {
+  const swaps = ROUNDS.map((_, index) => index < Math.ceil(ROUNDS.length / 2))
+
+  for (let index = swaps.length - 1; index > 0; index -= 1) {
+    const target = Math.floor(Math.random() * (index + 1))
+    ;[swaps[index], swaps[target]] = [swaps[target], swaps[index]]
+  }
+
+  return swaps
+}
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.min(max, Math.max(min, value))
@@ -313,7 +324,10 @@ export function FollowTheNairaGame() {
   const [screen, setScreen] = useState<GameScreen>("lobby")
   const [teamId, setTeamId] = useState<TeamId | null>(null)
   const [roundIndex, setRoundIndex] = useState(0)
-  const [secondsLeft, setSecondsLeft] = useState(12)
+  const [secondsLeft, setSecondsLeft] = useState(ROUND_SECONDS)
+  const [roundSwaps, setRoundSwaps] = useState(() =>
+    ROUNDS.map(() => false),
+  )
   const [answer, setAnswer] = useState<Answer | null>(null)
   const [timedOut, setTimedOut] = useState(false)
   const [funds, setFunds] = useState(500)
@@ -325,6 +339,9 @@ export function FollowTheNairaGame() {
 
   const selectedTeam = TEAMS.find((team) => team.id === teamId) ?? null
   const currentRound = ROUNDS[roundIndex]
+  const displayedAnswers = roundSwaps[roundIndex]
+    ? [currentRound.answers[1], currentRound.answers[0]]
+    : currentRound.answers
 
   const leaderboard = useMemo(
     () =>
@@ -365,7 +382,8 @@ export function FollowTheNairaGame() {
     if (!teamId) return
     setScreen("question")
     setRoundIndex(0)
-    setSecondsLeft(12)
+    setSecondsLeft(ROUND_SECONDS)
+    setRoundSwaps(createRoundSwaps())
     setAnswer(null)
     setTimedOut(false)
     setFunds(500)
@@ -392,7 +410,7 @@ export function FollowTheNairaGame() {
       return
     }
     setRoundIndex((value) => value + 1)
-    setSecondsLeft(12)
+    setSecondsLeft(ROUND_SECONDS)
     setAnswer(null)
     setTimedOut(false)
   }
@@ -401,7 +419,8 @@ export function FollowTheNairaGame() {
     setScreen("lobby")
     setTeamId(null)
     setRoundIndex(0)
-    setSecondsLeft(12)
+    setSecondsLeft(ROUND_SECONDS)
+    setRoundSwaps(ROUNDS.map(() => false))
     setAnswer(null)
     setTimedOut(false)
     setFunds(500)
@@ -414,7 +433,7 @@ export function FollowTheNairaGame() {
   async function copyScorecard() {
     if (!selectedTeam) return
     await navigator.clipboard.writeText(
-      `I scored ${score.toLocaleString()} points for ${selectedTeam.name} in Follow the Naira — ₦${funds}m reached the last mile. #PULSEPlay`,
+      `I scored ${score.toLocaleString()} points for ${selectedTeam.name} in Follow the Naira. ₦${funds}m reached the last mile. #PULSEPlay`,
     )
     setCopied(true)
     window.setTimeout(() => setCopied(false), 1800)
@@ -495,7 +514,7 @@ export function FollowTheNairaGame() {
                 <h1 id="game-title">The Naira!</h1>
               </div>
               <p className={styles.introCopy}>
-                Four gates. Twelve seconds each. One mission: get as much of
+                Four gates. Ten seconds each. One mission: get as much of
                 <strong> ₦500 million</strong> as possible to the people it was
                 approved for.
               </p>
@@ -576,11 +595,19 @@ export function FollowTheNairaGame() {
 
               <div className={styles.questionStage}>
                 <div
-                  className={styles.characterCard}
+                  className={styles.promptVisual}
                   style={{ "--round-colour": currentRound.colour } as React.CSSProperties}
                 >
-                  <span className={styles.characterEmoji}>{currentRound.character}</span>
-                  <div>
+                  <span className={styles.promptArt}>
+                    <Image
+                      src={currentRound.image}
+                      alt={currentRound.imageAlt}
+                      fill
+                      sizes="(max-width: 720px) 42vw, 210px"
+                      priority={roundIndex === 0}
+                    />
+                  </span>
+                  <div className={styles.characterCaption}>
                     <strong>{currentRound.characterName}</strong>
                     <small>{currentRound.characterRole}</small>
                   </div>
@@ -588,22 +615,28 @@ export function FollowTheNairaGame() {
 
                 <div className={styles.questionCopy}>
                   <span className={styles.roundKicker}>{currentRound.kicker}</span>
-                  <h2 id="round-title">{currentRound.title}</h2>
-                  <p>{currentRound.situation}</p>
+                  <h2 id="round-title">{currentRound.situation}</h2>
                 </div>
               </div>
 
               {!answer && !timedOut && (
                 <div className={styles.answerGrid}>
-                  {currentRound.answers.map((choice, index) => (
+                  {displayedAnswers.map((choice, index) => (
                     <button
                       type="button"
                       key={choice.id}
-                      className={index === 0 ? styles.buzzerBlue : styles.buzzerRed}
+                      className={styles.answerOption}
                       onClick={() => chooseAnswer(choice)}
                     >
+                      <span className={styles.answerVisual}>
+                        <Image
+                          src={choice.image}
+                          alt={choice.imageAlt}
+                          fill
+                          sizes="(max-width: 720px) 44vw, 330px"
+                        />
+                      </span>
                       <span className={styles.answerLetter}>{index === 0 ? "A" : "B"}</span>
-                      <span className={styles.answerEmoji}>{choice.emoji}</span>
                       <strong>{choice.label}</strong>
                       <small>{choice.sublabel}</small>
                       <i>Buzz!</i>
@@ -635,7 +668,7 @@ export function FollowTheNairaGame() {
                     </p>
                     <blockquote>
                       “{timedOut ? "The paperwork waited. Inflation did not." : answer?.hostLine}”
-                      <cite>— Your slightly dramatic host</cite>
+                      <cite>Your slightly dramatic host</cite>
                     </blockquote>
                   </div>
                   <button type="button" onClick={advanceRound}>
@@ -717,6 +750,8 @@ export function FollowTheNairaGame() {
                   becomes a public service.
                 </p>
               </div>
+
+              <GameScoreReporter gameId="follow-the-naira" score={score} />
 
               <div className={styles.resultActions}>
                 <button type="button" onClick={copyScorecard}>

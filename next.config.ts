@@ -1,6 +1,10 @@
 import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
+  // A package-lock.json also exists higher up in the home directory. Pinning
+  // the root prevents Turbopack from scanning that entire tree during builds.
+  turbopack: { root: process.cwd() },
+
   /**
    * The whole app renders client-side against Firestore — there is no server
    * data fetching, no dynamic routes and no middleware — so every route
