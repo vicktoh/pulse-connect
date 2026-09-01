@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { QRCodeSVG } from "qrcode.react"
 import { useMemo, useState } from "react"
-import { addDoc, collection, doc, serverTimestamp, setDoc, Timestamp, updateDoc } from "firebase/firestore"
+import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc, Timestamp, updateDoc } from "firebase/firestore"
 import { ArrowUpRight, Check, Copy, Eye, Gamepad2, Lock, MonitorUp, Plus, Power, QrCode, Radio, Send, Sparkles, Target, Timer, Trophy, Unlock } from "lucide-react"
 
 import { db } from "@/lib/firebase/client"
@@ -33,7 +33,7 @@ export function LiveControlRoom() {
   const session = sessions.find((item) => item.id === selectedId) ?? sessions.find((item) => item.status === "live") ?? sessions[0] ?? null
   const sessionId = session?.id ?? null
   const [sessionName, setSessionName] = useState("PULSE Summit Live")
-  const [sessionCode, setSessionCode] = useState("PULSE26")
+  const [sessionCode, setSessionCode] = useState(createCode)
   const [promptType, setPromptType] = useState<"poll" | "wordcloud">("poll")
   const [question, setQuestion] = useState("")
   const [options, setOptions] = useState("Yes\nNo\nNot sure")
@@ -43,6 +43,7 @@ export function LiveControlRoom() {
   const [trackerCommitmentId, setTrackerCommitmentId] = useState("")
   const [cue, setCue] = useState<BroadcastCue>({ kind: "experience", experience: "lobby" })
   const [busy, setBusy] = useState(false)
+  const [sessionNotice, setSessionNotice] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const participantCount = useParticipantCount(sessionId)
   const { leaderboard } = useEventLeaderboard(sessionId)
@@ -70,14 +71,28 @@ export function LiveControlRoom() {
     const code = sessionCode.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10)
     if (!code || !sessionName.trim() || busy) return
     setBusy(true)
+    setSessionNotice(null)
     try {
-      await setDoc(doc(db, "events", code), {
+      const sessionRef = doc(db, "events", code)
+      const existing = await getDoc(sessionRef)
+      if (existing.exists()) {
+        setSelectedId(code)
+        setSessionNotice(`${code} already exists, so that room has been opened. Use a different room ID to create another.`)
+        return
+      }
+      await setDoc(sessionRef, {
         name: sessionName.trim().slice(0, 80), code, status: "live", activeExperience: "lobby", activePromptId: null,
         trackerViewMode: "overview", trackerLab: null, trackerCommitmentId: null,
         createdAt: serverTimestamp(), createdBy: user?.uid ?? "",
       })
       setSelectedId(code)
+      setSessionNotice(`${code} is live and ready for attendees.`)
       setSessionCode(createCode())
+    } catch (error) {
+      const message = error instanceof Error && error.message.includes("permission")
+        ? "Firebase rejected the room. Refresh your admin session, then try a fresh room ID."
+        : "The room could not be created. Check your connection and try again."
+      setSessionNotice(message)
     } finally { setBusy(false) }
   }
 
@@ -148,7 +163,7 @@ export function LiveControlRoom() {
         <aside className={styles.sessionRail}>
           <span className={styles.railLabel}>EVENT SESSIONS</span>
           <div className={styles.sessionList}>{sessions.map((item) => <button type="button" className={item.id === session?.id ? styles.selectedSession : ""} onClick={() => setSelectedId(item.id)} key={item.id}><i className={item.status === "live" ? styles.liveDot : ""} /><span><strong>{item.code}</strong><small>{item.name}</small></span></button>)}</div>
-          <form className={styles.newSession} onSubmit={createSession}><strong><Plus /> New session</strong><label htmlFor="event-name">Event name</label><input id="event-name" value={sessionName} onChange={(event) => setSessionName(event.target.value)} /><label htmlFor="event-code">Internal session ID</label><input id="event-code" value={sessionCode} onChange={(event) => setSessionCode(event.target.value.toUpperCase())} /><button type="submit" disabled={busy}>Create & open</button></form>
+          <form className={styles.newSession} onSubmit={createSession}><strong><Plus /> New session</strong><label htmlFor="event-name">Event name</label><input id="event-name" value={sessionName} onChange={(event) => setSessionName(event.target.value)} /><label htmlFor="event-code">New room ID · must be unique</label><input id="event-code" value={sessionCode} onChange={(event) => setSessionCode(event.target.value.toUpperCase())} />{sessionNotice && <p role="status" style={{ margin: 0, color: "#9b3323", fontSize: 11, fontWeight: 850, lineHeight: 1.4 }}>{sessionNotice}</p>}<button type="submit" disabled={busy}>{busy ? "Opening…" : "Create & open"}</button></form>
         </aside>
 
         {!session ? <section className={styles.noSession}><Radio /><h1>Create the first live session</h1><p>The QR, games, tracker and audience tools will appear here.</p></section> : (
