@@ -29,15 +29,54 @@ import {
 import { useFirebaseAuth } from "@/lib/firebase/auth-provider"
 import { db } from "@/lib/firebase/client"
 import { useCommitmentMeta, useReformCommitments, type CommitmentMeta } from "@/lib/events/reform-tracker"
-import { LABS, type LabId, type ReformCommitment, type VerifiedStatus } from "@/lib/events/types"
+import {
+  LABS,
+  type ConfirmationStatus,
+  type LabId,
+  type ReformCommitment,
+  type ReformSignalType,
+  type TrackerReadiness,
+  type VerifiedStatus,
+} from "@/lib/events/types"
 import { useEventSessions } from "@/lib/events/use-event-live-data"
 import metaStyles from "./reform-tracker-meta.module.css"
 import styles from "./reform-tracker-admin.module.css"
 
 type DeskTab = "capture" | "review" | "published"
-type CommitmentForm = { statement: string; leadActor: string; intendedOutcome: string }
+type CommitmentForm = {
+  signalCode: string
+  problem: string
+  publicChange: string
+  signalType: ReformSignalType
+  statement: string
+  leadActor: string
+  confirmationStatus: ConfirmationStatus
+  confirmationNote: string
+  intendedOutcome: string
+  milestoneDate: string
+  evidenceOfProgress: string
+  trackerReadiness: TrackerReadiness
+  readBackConfirmed: boolean
+  outstandingItems: string
+}
 
-const EMPTY_FORM: CommitmentForm = { statement: "", leadActor: "", intendedOutcome: "" }
+const EMPTY_FORM: CommitmentForm = {
+  signalCode: "",
+  problem: "",
+  publicChange: "",
+  signalType: "committed-action",
+  statement: "",
+  leadActor: "",
+  confirmationStatus: "requires-confirmation",
+  confirmationNote: "",
+  intendedOutcome: "",
+  milestoneDate: "",
+  evidenceOfProgress: "",
+  trackerReadiness: "hold",
+  readBackConfirmed: false,
+  outstandingItems: "",
+}
+const LAB_CODES: Record<LabId, string> = { health: "HLT", water: "WSH", education: "EDU", "social-protection": "SOC", "debt-accountability": "DBT" }
 const PROFILE_KEY = "pulse-rapporteur-profile"
 const DRAFT_KEY = "pulse-commitment-draft"
 
@@ -53,9 +92,21 @@ function readLocal<T>(key: string, fallback: T): T {
 function publicRecord(commitment: ReformCommitment) {
   return {
     lab: commitment.lab,
+    signalNumber: commitment.signalNumber,
+    signalCode: commitment.signalCode,
+    problem: commitment.problem,
+    publicChange: commitment.publicChange,
+    signalType: commitment.signalType,
     statement: commitment.statement,
     leadActor: commitment.leadActor,
+    confirmationStatus: commitment.confirmationStatus,
+    confirmationNote: commitment.confirmationNote,
     intendedOutcome: commitment.intendedOutcome,
+    milestoneDate: commitment.milestoneDate,
+    evidenceOfProgress: commitment.evidenceOfProgress,
+    trackerReadiness: commitment.trackerReadiness,
+    readBackConfirmed: commitment.readBackConfirmed,
+    outstandingItems: commitment.outstandingItems,
     status: commitment.status,
     headline: commitment.headline,
     revision: commitment.revision,
@@ -89,7 +140,7 @@ export function ReformTrackerAdmin() {
   const [lab, setLab] = useState<LabId>(initialProfile.lab)
   const [rapporteurName, setRapporteurName] = useState(initialProfile.rapporteurName)
   const [tab, setTab] = useState<DeskTab>("capture")
-  const [form, setForm] = useState<CommitmentForm>(() => readLocal(DRAFT_KEY, EMPTY_FORM))
+  const [form, setForm] = useState<CommitmentForm>(() => ({ ...EMPTY_FORM, ...readLocal(DRAFT_KEY, EMPTY_FORM) }))
   const [editingId, setEditingId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
@@ -117,7 +168,7 @@ export function ReformTrackerAdmin() {
     persistProfile(lab, nextName)
   }
 
-  function changeForm(field: keyof CommitmentForm, value: string) {
+  function changeForm<K extends keyof CommitmentForm>(field: K, value: CommitmentForm[K]) {
     const next = { ...form, [field]: value }
     setForm(next)
     window.localStorage.setItem(DRAFT_KEY, JSON.stringify(next))
@@ -140,17 +191,28 @@ export function ReformTrackerAdmin() {
       const commitmentRef = current
         ? doc(db, "events", session.id, "commitments", current.id)
         : doc(collection(db, "events", session.id, "commitments"))
+      const nextSignalNumber = current?.signalNumber ?? Math.max(0, ...labCommitments.map((item) => item.signalNumber)) + 1
       const clean = {
         lab,
-        statement: form.statement.trim().slice(0, 180),
-        leadActor: form.leadActor.trim().slice(0, 80),
-        intendedOutcome: form.intendedOutcome.trim().slice(0, 180),
+        signalNumber: nextSignalNumber,
+        signalCode: (form.signalCode.trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24) || `${LAB_CODES[lab]}-${String(nextSignalNumber).padStart(2, "0")}`),
+        problem: form.problem.trim().slice(0, 600),
+        publicChange: form.publicChange.trim().slice(0, 400),
+        signalType: form.signalType,
+        statement: form.statement.trim().slice(0, 400),
+        leadActor: form.leadActor.trim().slice(0, 300),
+        confirmationStatus: form.confirmationStatus,
+        confirmationNote: form.confirmationNote.trim().slice(0, 400),
+        intendedOutcome: form.intendedOutcome.trim().slice(0, 300),
+        milestoneDate: form.milestoneDate,
+        evidenceOfProgress: form.evidenceOfProgress.trim().slice(0, 400),
+        trackerReadiness: form.trackerReadiness,
+        readBackConfirmed: form.readBackConfirmed,
+        outstandingItems: form.outstandingItems.trim().slice(0, 400),
       }
 
       if (current) {
-        const materiallyChanged = current.statement !== clean.statement
-          || current.leadActor !== clean.leadActor
-          || current.intendedOutcome !== clean.intendedOutcome
+        const materiallyChanged = Object.entries(clean).some(([key, value]) => current[key as keyof ReformCommitment] !== value)
         if ((current.status === "published" || current.status === "withdrawn") && materiallyChanged) {
           batch.set(doc(collection(commitmentRef, "revisions")), {
             ...publicRecord(current),
@@ -202,17 +264,33 @@ export function ReformTrackerAdmin() {
 
   function editCommitment(item: ReformCommitment) {
     setEditingId(item.id)
-    setForm({ statement: item.statement, leadActor: item.leadActor, intendedOutcome: item.intendedOutcome })
+    const nextForm: CommitmentForm = {
+      signalCode: item.signalCode,
+      problem: item.problem,
+      publicChange: item.publicChange,
+      signalType: item.signalType,
+      statement: item.statement,
+      leadActor: item.leadActor,
+      confirmationStatus: item.confirmationStatus,
+      confirmationNote: item.confirmationNote,
+      intendedOutcome: item.intendedOutcome,
+      milestoneDate: item.milestoneDate,
+      evidenceOfProgress: item.evidenceOfProgress,
+      trackerReadiness: item.trackerReadiness,
+      readBackConfirmed: item.readBackConfirmed,
+      outstandingItems: item.outstandingItems,
+    }
+    setForm(nextForm)
     setLab(item.lab)
     setTab("capture")
-    window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ statement: item.statement, leadActor: item.leadActor, intendedOutcome: item.intendedOutcome }))
+    window.localStorage.setItem(DRAFT_KEY, JSON.stringify(nextForm))
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
   async function changeStatus(item: ReformCommitment, status: "draft" | "review" | "published") {
     if (!session || busy) return
-    if ((status === "review" || status === "published") && (!item.leadActor || !item.intendedOutcome)) {
-      setNotice("Add the accountable actor and measurable outcome before review.")
+    if ((status === "review" || status === "published") && (!item.signalCode || !item.problem || !item.publicChange || !item.leadActor || !item.intendedOutcome || !item.milestoneDate || !item.evidenceOfProgress)) {
+      setNotice("Complete the Reform Signal fields, milestone date, and evidence of progress before review.")
       return
     }
     setBusy(true)
@@ -267,12 +345,24 @@ export function ReformTrackerAdmin() {
 
   function exportCsv() {
     const quote = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`
-    const headings = ["Lab", "Commitment", "Lead actor", "Intended outcome", "Status", "Headline", "Prediction: stalled", "Prediction: progressing", "Prediction: completed", "Verified status", "Evidence note", "Evidence sources"]
+    const headings = ["Lab", "Reform Signal", "Signal ID", "Problem", "The change", "Signal type", "The first action", "Who acts", "Confirmation", "Confirmation note", "First milestone", "Milestone date", "Evidence of progress", "Tracker readiness", "Read-back confirmed", "Outstanding items", "Status", "Headline", "Vote: stalled", "Vote: progressing", "Vote: completed", "Verified status", "Evidence note", "Evidence sources"]
     const rows = commitments.map((item) => [
       LABS.find((entry) => entry.id === item.lab)?.name ?? item.lab,
+      `Reform Signal ${item.signalNumber}`,
+      item.signalCode,
+      item.problem,
+      item.publicChange,
+      item.signalType,
       item.statement,
       item.leadActor,
+      item.confirmationStatus,
+      item.confirmationNote,
       item.intendedOutcome,
+      item.milestoneDate,
+      item.evidenceOfProgress,
+      item.trackerReadiness,
+      item.readBackConfirmed ? "Yes" : "No",
+      item.outstandingItems,
       item.status,
       item.headline ? "Yes" : "No",
       item.predictionSummary?.stalled ?? 0,
@@ -315,10 +405,27 @@ export function ReformTrackerAdmin() {
       {tab === "capture" && (
         <div className={styles.captureGrid}>
           <form className={styles.captureForm} onSubmit={saveDraft}>
-            <div className={styles.formTitle}><div><Plus /><span>{editingId ? "EDIT COMMITMENT" : "QUICK CAPTURE"}</span></div><small>Drafts can begin with the statement only.</small></div>
-            <Field label="Commitment statement" value={form.statement} max={180} placeholder="What did the stakeholder commit to doing?" onChange={(value) => changeForm("statement", value)} large />
-            <Field label="One lead accountable actor" value={form.leadActor} max={80} placeholder="e.g. Federal Ministry of Health" onChange={(value) => changeForm("leadActor", value)} />
-            <Field label="Intended measurable outcome" value={form.intendedOutcome} max={180} placeholder="What observable change should exist by the next PULSE Summit?" onChange={(value) => changeForm("intendedOutcome", value)} large />
+            <div className={styles.formTitle}><div><Plus /><span>{editingId ? "EDIT REFORM SIGNAL" : `REFORM SIGNAL ${labCommitments.length + 1}`}</span></div><small>One record should describe one coherent next step.</small></div>
+            <div className={styles.formRow}>
+              <Field label="Signal ID" value={form.signalCode} max={24} placeholder={`${LAB_CODES[lab]}-${String(labCommitments.length + 1).padStart(2, "0")} (assigned if blank)`} onChange={(value) => changeForm("signalCode", value.toUpperCase())} />
+              <SelectField label="Signal type" value={form.signalType} onChange={(value) => changeForm("signalType", value as ReformSignalType)} options={[{ value: "committed-action", label: "Committed action" }, { value: "reform-opportunity", label: "Reform opportunity" }, { value: "advocacy-priority", label: "Advocacy priority" }, { value: "evidence-gap", label: "Evidence gap" }]} />
+            </div>
+            <Field label="Problem" hint="What happened, and who is affected?" value={form.problem} max={600} placeholder="Link the issue to the Lab discussion and describe who is affected." onChange={(value) => changeForm("problem", value)} large />
+            <Field label="The change" hint="What should people or public accountability experience differently?" value={form.publicChange} max={400} placeholder="Describe the change people should be able to see or experience." onChange={(value) => changeForm("publicChange", value)} large />
+            <Field label="The first action" hint="Seeking approval is not implementing the reform." value={form.statement} max={400} placeholder="What happens first, and which institution will do it?" onChange={(value) => changeForm("statement", value)} large />
+            <Field label="Who acts" hint="Authority, support organisation, and follow-up lead." value={form.leadActor} max={300} placeholder="Institution with authority; follow-up lead, role and organisation." onChange={(value) => changeForm("leadActor", value)} large />
+            <div className={styles.formRow}>
+              <SelectField label="Confirmation" value={form.confirmationStatus} onChange={(value) => changeForm("confirmationStatus", value as ConfirmationStatus)} options={[{ value: "yes", label: "Yes" }, { value: "no", label: "No" }, { value: "requires-confirmation", label: "Requires confirmation" }]} />
+              <Field label="First milestone date" value={form.milestoneDate} max={10} type="date" placeholder="" onChange={(value) => changeForm("milestoneDate", value)} />
+            </div>
+            <Field label="Confirmation note" value={form.confirmationNote} max={400} placeholder="Record the exact wording and authority." onChange={(value) => changeForm("confirmationNote", value)} large />
+            <Field label="The first milestone" hint="First observable result within 90 days." value={form.intendedOutcome} max={300} placeholder="What observable result should exist?" onChange={(value) => changeForm("intendedOutcome", value)} large />
+            <Field label="Evidence of progress" hint="What proves the milestone, and who checks it?" value={form.evidenceOfProgress} max={400} placeholder="Source and evidence provider/checker, if agreed." onChange={(value) => changeForm("evidenceOfProgress", value)} large />
+            <div className={styles.formRow}>
+              <SelectField label="Tracker readiness" value={form.trackerReadiness} onChange={(value) => changeForm("trackerReadiness", value as TrackerReadiness)} options={[{ value: "hold", label: "Hold for clarification" }, { value: "ready", label: "Ready for PULSE review" }]} />
+              <label className={styles.checkField}><input type="checkbox" checked={form.readBackConfirmed} onChange={(event) => changeForm("readBackConfirmed", event.target.checked)} /><span><strong>Read-back confirmed</strong><small>Checked during the closing read-back</small></span></label>
+            </div>
+            <Field label="Corrections, disagreement or outstanding confirmation" value={form.outstandingItems} max={400} placeholder="Enter outstanding items, or leave blank if none." onChange={(value) => changeForm("outstandingItems", value)} large />
             <div className={styles.formActions}>{editingId && <button type="button" onClick={clearForm}><RotateCcw /> Cancel edit</button>}<button className={styles.primaryAction} type="submit" disabled={busy || !session || !rapporteurName.trim() || !form.statement.trim()}><Save /> {editingId ? "Save changes" : "Save & add another"}</button></div>
           </form>
           <CommitmentList title="Drafts from this lab" items={draftItems} metadata={commitmentMeta} empty="No drafts yet. Capture the first commitment while the room is talking." actions={(item) => <><button onClick={() => editCommitment(item)}><FilePenLine /> Edit</button><button onClick={() => void changeStatus(item, "review")}><Send /> Send to review</button><button className={styles.dangerButton} onClick={() => void deleteDraft(item)}><Trash2 /></button></>} />
@@ -334,12 +441,16 @@ export function ReformTrackerAdmin() {
   )
 }
 
-function Field({ label, value, max, placeholder, onChange, large = false }: { label: string; value: string; max: number; placeholder: string; onChange: (value: string) => void; large?: boolean }) {
-  return <label className={styles.field}><span>{label}<small>{value.length}/{max}</small></span>{large ? <textarea value={value} onChange={(event) => onChange(event.target.value.slice(0, max))} placeholder={placeholder} rows={4} /> : <input value={value} onChange={(event) => onChange(event.target.value.slice(0, max))} placeholder={placeholder} />}</label>
+function Field({ label, hint, value, max, placeholder, onChange, large = false, type = "text" }: { label: string; hint?: string; value: string; max: number; placeholder: string; onChange: (value: string) => void; large?: boolean; type?: string }) {
+  return <label className={styles.field}><span>{label}<small>{value.length}/{max}</small></span>{hint && <em>{hint}</em>}{large ? <textarea value={value} onChange={(event) => onChange(event.target.value.slice(0, max))} placeholder={placeholder} rows={4} /> : <input type={type} value={value} onChange={(event) => onChange(event.target.value.slice(0, max))} placeholder={placeholder} />}</label>
+}
+
+function SelectField({ label, value, options, onChange }: { label: string; value: string; options: { value: string; label: string }[]; onChange: (value: string) => void }) {
+  return <label className={styles.field}><span>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
 }
 
 function CommitmentList({ title, items, metadata, empty, actions, children, detailed = false }: { title: string; items: ReformCommitment[]; metadata: Map<string, CommitmentMeta>; empty: string; actions: (item: ReformCommitment) => React.ReactNode; children?: (item: ReformCommitment) => React.ReactNode; detailed?: boolean }) {
-  return <section className={styles.commitmentPanel}><div className={styles.listTitle}><span>{title}</span><b>{items.length}</b></div>{items.length === 0 ? <div className={styles.emptyList}><Sparkles /> {empty}</div> : <div className={styles.commitmentList}>{items.map((item) => { const meta = metadata.get(item.id); return <article className={styles.commitmentCard} data-withdrawn={item.status === "withdrawn" ? "true" : "false"} key={item.id}><div className={styles.cardTop}><span>REV {item.revision}</span>{item.headline && <b><Star /> HEADLINE</b>}</div><h2>{item.statement}</h2><span className={metaStyles.rapporteur}><UserRound /> {meta?.rapporteurName || "Rapporteur not recorded"}</span>{detailed && <div className={styles.commitmentFacts}><p><span>ACCOUNTABLE ACTOR</span><strong>{item.leadActor || "Not entered"}</strong></p><p><span>MEASURABLE OUTCOME</span><strong>{item.intendedOutcome || "Not entered"}</strong></p></div>}{meta?.withdrawnReason && <p className={metaStyles.privateReason}><strong>PRIVATE WITHDRAWAL REASON</strong>{meta.withdrawnReason}</p>}<div className={styles.cardActions}>{actions(item)}</div>{children?.(item)}</article> })}</div>}</section>
+  return <section className={styles.commitmentPanel}><div className={styles.listTitle}><span>{title}</span><b>{items.length}</b></div>{items.length === 0 ? <div className={styles.emptyList}><Sparkles /> {empty}</div> : <div className={styles.commitmentList}>{items.map((item) => { const meta = metadata.get(item.id); return <article className={styles.commitmentCard} data-withdrawn={item.status === "withdrawn" ? "true" : "false"} key={item.id}><div className={styles.cardTop}><span>{item.signalCode || `SIGNAL ${item.signalNumber}`} · REV {item.revision}</span><span className={styles.signalType}>{item.signalType.replaceAll("-", " ")}</span>{item.headline && <b><Star /> HEADLINE</b>}</div><p className={styles.signalName}>REFORM SIGNAL {item.signalNumber}</p><h2>{item.statement}</h2><span className={metaStyles.rapporteur}><UserRound /> {meta?.rapporteurName || "Rapporteur not recorded"}</span>{detailed && <div className={styles.commitmentFacts}><p><span>PROBLEM</span><strong>{item.problem || "Not entered"}</strong></p><p><span>THE CHANGE</span><strong>{item.publicChange || "Not entered"}</strong></p><p><span>WHO ACTS</span><strong>{item.leadActor || "Not entered"}</strong></p><p><span>FIRST MILESTONE</span><strong>{item.intendedOutcome || "Not entered"}{item.milestoneDate ? ` · ${item.milestoneDate}` : ""}</strong></p><p><span>EVIDENCE OF PROGRESS</span><strong>{item.evidenceOfProgress || "Not entered"}</strong></p><p><span>TRACKER READINESS</span><strong>{item.trackerReadiness === "ready" ? "Ready for PULSE review" : "Hold for clarification"}</strong></p></div>}{meta?.withdrawnReason && <p className={metaStyles.privateReason}><strong>PRIVATE WITHDRAWAL REASON</strong>{meta.withdrawnReason}</p>}<div className={styles.cardActions}>{actions(item)}</div>{children?.(item)}</article> })}</div>}</section>
 }
 
 function EvidenceEditor({ sessionId, commitment }: { sessionId: string; commitment: ReformCommitment }) {

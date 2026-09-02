@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { QRCodeSVG } from "qrcode.react"
 import { useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
@@ -71,9 +72,9 @@ export function LiveProjector() {
   const joinUrl = `${APP_URL}/play?session=${session.code}`
 
   return (
-    <main className={styles.projector}>
+    <main className={styles.projector} data-experience={session.activeExperience}>
       <header className={styles.topbar}>
-        <div className={styles.brand}><span>PULSE</span><strong>PLAY</strong></div>
+        <div className={styles.brand}><span>PULSE</span><strong>{session.activeExperience === "tracker" || session.activeExperience === "prediction" ? "REFORM TRACKER" : "PLAY"}</strong></div>
         <div className={styles.liveBadge}><i /> LIVE NOW</div>
         <div className={styles.roomCount}><Users /> {participantCount.toLocaleString()} joined</div>
       </header>
@@ -161,17 +162,41 @@ export function LiveProjector() {
         />
       )}
 
-      <footer className={styles.footer}><span>{session.name}</span><strong>Public finance, but make it a game show.</strong></footer>
+      <footer className={styles.footer}><span>{session.name}</span><strong>{session.activeExperience === "tracker" || session.activeExperience === "prediction" ? "From the labs to action." : "Public finance, but make it a game show."}</strong></footer>
     </main>
   )
+}
+
+const LAB_IMAGES: Record<ReformCommitment["lab"], string> = {
+  health: "/images/labs/health.webp",
+  water: "/images/labs/water.webp",
+  education: "/images/labs/education.webp",
+  "social-protection": "/images/labs/social-protection.webp",
+  "debt-accountability": "/images/labs/debt-accountability.webp",
+}
+
+const SIGNAL_TYPE_LABELS: Record<ReformCommitment["signalType"], string> = {
+  "committed-action": "Committed action",
+  "reform-opportunity": "Reform opportunity",
+  "advocacy-priority": "Advocacy priority",
+  "evidence-gap": "Evidence gap",
 }
 
 function TrackerScreen({ session, commitments }: { session: EventSession; commitments: ReformCommitment[] }) {
   const selectedLab = LABS.find((item) => item.id === session.trackerLab) ?? LABS[0]
   const selectedCommitment = commitments.find((item) => item.id === session.trackerCommitmentId) ?? null
+  const [carouselIndex, setCarouselIndex] = useState(0)
+  const carouselSize = Math.min(3, commitments.length)
+  const carouselItems = Array.from({ length: carouselSize }, (_, offset) => commitments[(carouselIndex + offset) % commitments.length])
   const visibleCommitments = session.trackerViewMode === "newest"
-    ? commitments.slice(0, 4)
+    ? [...commitments].sort((a, b) => b.updatedAtMs - a.updatedAtMs).slice(0, 4)
     : commitments.filter((item) => item.lab === selectedLab.id).slice(0, 4)
+
+  useEffect(() => {
+    if (session.trackerViewMode !== "overview" || commitments.length <= carouselSize) return
+    const timer = window.setInterval(() => setCarouselIndex((current) => (current + 1) % commitments.length), 7_000)
+    return () => window.clearInterval(timer)
+  }, [carouselSize, commitments.length, session.trackerViewMode])
 
   if (session.trackerViewMode === "commitment") {
     return <section className={trackerStyles.trackerView}>{selectedCommitment ? <CommitmentSpotlight commitment={selectedCommitment} /> : <TrackerEmpty />}</section>
@@ -179,40 +204,66 @@ function TrackerScreen({ session, commitments }: { session: EventSession; commit
 
   if (session.trackerViewMode === "overview") {
     return <section className={trackerStyles.trackerView}>
-      <TrackerHeading title={<>Five labs. One public <em>accountability trail.</em></>} count={commitments.length} />
-      <div className={trackerStyles.labGrid}>{LABS.map((lab) => { const items = commitments.filter((item) => item.lab === lab.id); return <article className={trackerStyles.labCard} style={{ "--lab-accent": lab.accent } as React.CSSProperties} key={lab.id}><span>{lab.icon} {lab.name}</span><strong>{items.length}</strong><small>published commitments</small><p>{items.find((item) => item.headline)?.statement ?? items[0]?.statement ?? "Commitments will appear as the lab reports."}</p></article> })}</div>
+      <TrackerHeading title={<>Follow every<br /><em>reform signal.</em></>} count={commitments.length} label="published signals" />
+      {carouselItems.length ? <>
+        <div className={trackerStyles.projectorCarousel}>{carouselItems.map((item) => <CompactCommitment commitment={item} key={item.id} />)}</div>
+        <div className={trackerStyles.carouselProgress}><span>ROTATING THROUGH ALL {commitments.length} SIGNALS</span><div>{commitments.map((item, index) => <i data-active={index === carouselIndex ? "true" : "false"} key={item.id} />)}</div></div>
+      </> : <TrackerEmpty />}
     </section>
   }
 
   return <section className={trackerStyles.trackerView}>
-    <TrackerHeading title={session.trackerViewMode === "newest" ? <>Just added to the <em>Reform Tracker.</em></> : <>{selectedLab.name} lab <em>commitments.</em></>} count={visibleCommitments.length} />
+    <TrackerHeading title={session.trackerViewMode === "newest" ? <>Newest signals.<br /><em>Now on the record.</em></> : <>{selectedLab.name} Lab.<br /><em>Signals at a glance.</em></>} count={visibleCommitments.length} label="on screen" />
     {visibleCommitments.length ? <div className={trackerStyles.commitmentGrid}>{visibleCommitments.map((item) => <CompactCommitment commitment={item} key={item.id} />)}</div> : <TrackerEmpty />}
   </section>
 }
 
-function TrackerHeading({ title, count }: { title: React.ReactNode; count: number }) {
-  return <div className={trackerStyles.trackerHeading}><div><span><Target /> PULSE REFORM TRACKER · LIVE</span><h1>{title}</h1></div><div className={trackerStyles.trackerCount}><strong>{count}</strong><span>ON SCREEN</span></div></div>
+function TrackerHeading({ title, count, label }: { title: React.ReactNode; count: number; label: string }) {
+  return <div className={trackerStyles.trackerHeading}><div><span><Target /> PULSE REFORM TRACKER · LIVE</span><h1>{title}</h1></div><div className={trackerStyles.trackerCount}><strong>{count}</strong><span>{label}</span></div></div>
 }
 
 function CompactCommitment({ commitment }: { commitment: ReformCommitment }) {
   const lab = LABS.find((item) => item.id === commitment.lab) ?? LABS[0]
-  return <article className={trackerStyles.commitmentCard} style={{ "--lab-accent": lab.accent } as React.CSSProperties}><span>{lab.icon} {lab.name}{commitment.headline ? " · HEADLINE" : ""}</span><h2>{commitment.statement}</h2><footer><div><small>LEAD ACTOR</small><strong>{commitment.leadActor}</strong></div><div><small>OUTCOME BY NEXT SUMMIT</small><strong>{commitment.intendedOutcome}</strong></div></footer></article>
+  return <article className={trackerStyles.commitmentCard} style={{ "--lab-accent": lab.accent } as React.CSSProperties}>
+    <header><Image src={LAB_IMAGES[lab.id]} alt="" width={640} height={640} sizes="72px" /><div><span>{lab.name} Lab</span><small>REFORM SIGNAL {String(commitment.signalNumber).padStart(2, "0")}</small></div><i>{commitment.headline ? "Headline" : "Tracking"}</i></header>
+    <h2>{commitment.statement}</h2>
+    <p>{commitment.publicChange || commitment.intendedOutcome}</p>
+    <footer><div><small>WHO ACTS</small><strong>{commitment.leadActor}</strong></div><div><small>FIRST MILESTONE</small><strong>{formatProjectorDate(commitment.milestoneDate)}</strong></div></footer>
+    {commitment.predictionSummary && <ProjectorOutlook commitment={commitment} />}
+  </article>
 }
 
 function CommitmentSpotlight({ commitment }: { commitment: ReformCommitment }) {
   const lab = LABS.find((item) => item.id === commitment.lab) ?? LABS[0]
-  return <article className={trackerStyles.spotlight} style={{ "--lab-accent": lab.accent } as React.CSSProperties}><div><span><Target /> {lab.name.toUpperCase()} LAB · PUBLISHED COMMITMENT</span><h2>{commitment.statement}</h2></div><dl className={trackerStyles.spotlightFacts}><div><dt>ONE LEAD ACCOUNTABLE ACTOR</dt><dd>{commitment.leadActor}</dd></div><div><dt>INTENDED OUTCOME BY NEXT PULSE SUMMIT</dt><dd>{commitment.intendedOutcome}</dd></div></dl></article>
+  return <article className={trackerStyles.spotlight} style={{ "--lab-accent": lab.accent } as React.CSSProperties}>
+    <header><Image src={LAB_IMAGES[lab.id]} alt="" width={640} height={640} sizes="92px" /><div><span>{lab.name} Lab</span><small>REFORM SIGNAL {String(commitment.signalNumber).padStart(2, "0")} · {SIGNAL_TYPE_LABELS[commitment.signalType]}</small></div><i>On the record</i></header>
+    <div className={trackerStyles.spotlightBody}><section><h2>{commitment.statement}</h2><div className={trackerStyles.featuredChange}><span>THE CHANGE PEOPLE SHOULD EXPERIENCE</span><p>{commitment.publicChange || commitment.intendedOutcome}</p></div></section><dl className={trackerStyles.spotlightFacts}><div><dt>THE PROBLEM</dt><dd>{commitment.problem || "Detail pending validation."}</dd></div><div><dt>WHO ACTS</dt><dd>{commitment.leadActor}</dd></div><div><dt>FIRST MILESTONE</dt><dd>{commitment.intendedOutcome}<small>{formatProjectorDate(commitment.milestoneDate)}</small></dd></div><div><dt>EVIDENCE OF PROGRESS</dt><dd>{commitment.evidenceOfProgress || "Evidence source to be confirmed."}</dd></div></dl></div>
+    {commitment.predictionSummary && <ProjectorOutlook commitment={commitment} />}
+  </article>
+}
+
+function ProjectorOutlook({ commitment }: { commitment: ReformCommitment }) {
+  const prediction = commitment.predictionSummary
+  if (!prediction) return null
+  const values = (["progressing", "completed", "stalled"] as const).map((key) => ({ key, percentage: prediction.total ? Math.round(prediction[key] / prediction.total * 100) : 0 }))
+  return <div className={trackerStyles.outlook}><div><span>AUDIENCE OUTLOOK</span><small>{prediction.total} VOTES</small></div><section>{values.map(({ key, percentage }) => <i data-choice={key} style={{ width: `${percentage}%` }} key={key} />)}</section><footer>{values.map(({ key, percentage }) => <span data-choice={key} key={key}><i />{key === "progressing" ? "Will move" : key === "completed" ? "Will be completed" : "Will stall"} <b>{percentage}%</b></span>)}</footer></div>
 }
 
 function PredictionScreen({ commitment, counts, total }: { commitment: ReformCommitment | null; counts: Map<string, number>; total: number }) {
   if (!commitment) return <section className={trackerStyles.predictionView}><TrackerEmpty /></section>
   const lab = LABS.find((item) => item.id === commitment.lab) ?? LABS[0]
-  const choices = [{ id: "stalled", label: "Will stall" }, { id: "progressing", label: "Will progress" }, { id: "completed", label: "Will be completed" }]
-  return <section className={trackerStyles.predictionView}><span className={trackerStyles.predictionKicker}><Radio /> PROMISE OR PROGRESS? · LIVE RESULTS</span><article className={trackerStyles.predictionStage} style={{ "--lab-accent": lab.accent } as React.CSSProperties}><div className={trackerStyles.predictionCopy}><span className={trackerStyles.predictionKicker}>{lab.icon} {lab.name.toUpperCase()} LAB</span><h1>{commitment.statement}</h1><p>{commitment.leadActor} · Outcome due by the next PULSE Summit</p></div><div className={trackerStyles.predictionResults}>{choices.map((choice) => { const count = counts.get(choice.id) ?? 0; const percent = total ? Math.round(count / total * 100) : 0; return <div className={trackerStyles.resultRow} key={choice.id}><p><span>{choice.label}</span><strong>{percent}%</strong></p><i><span style={{ width: `${percent}%` }} /></i><small>{count} prediction{count === 1 ? "" : "s"}</small></div> })}<div className={trackerStyles.predictionTotal}><Users /> {total} audience prediction{total === 1 ? "" : "s"}</div></div></article></section>
+  const choices = [{ id: "progressing", label: "Will move" }, { id: "completed", label: "Will be completed" }, { id: "stalled", label: "Will stall" }]
+  return <section className={trackerStyles.predictionView}><div className={trackerStyles.predictionHeading}><span><Radio /> PROMISE OR PROGRESS? · LIVE RESULTS</span><strong>{total} audience vote{total === 1 ? "" : "s"}</strong></div><article className={trackerStyles.predictionStage} style={{ "--lab-accent": lab.accent } as React.CSSProperties}><div className={trackerStyles.predictionCopy}><Image src={LAB_IMAGES[lab.id]} alt="" width={640} height={640} sizes="130px" /><span>{lab.name} Lab</span><h1>{commitment.statement}</h1><p>{commitment.leadActor}</p></div><div className={trackerStyles.predictionResults}>{choices.map((choice) => { const count = counts.get(choice.id) ?? 0; const percent = total ? Math.round(count / total * 100) : 0; return <div className={trackerStyles.resultRow} data-choice={choice.id} key={choice.id}><p><span>{choice.label}</span><strong>{percent}%</strong></p><i><span style={{ width: `${percent}%` }} /></i><small>{count} vote{count === 1 ? "" : "s"}</small></div> })}</div></article></section>
 }
 
 function TrackerEmpty() {
-  return <div className={trackerStyles.emptyTracker}><div><Target /><h2>The tracker is ready for its next commitment.</h2><p>Publish from the rapporteur desk, then take it live.</p></div></div>
+  return <div className={trackerStyles.emptyTracker}><div><Target /><h2>The tracker is ready for its next signal.</h2><p>Publish from the rapporteur desk, then take it live.</p></div></div>
+}
+
+function formatProjectorDate(value: string) {
+  if (!value) return "Date to be confirmed"
+  const date = new Date(`${value}T00:00:00`)
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("en-NG", { day: "numeric", month: "short", year: "numeric" }).format(date)
 }
 
 function ProjectorMessage({ title, detail }: { title: string; detail: string }) {

@@ -25,6 +25,7 @@ import {
 } from "@/lib/events/use-event-live-data"
 import styles from "./event-play-lobby.module.css"
 import { AudienceTakeover } from "./audience-takeover"
+import { AudienceReformTracker } from "./audience-reform-tracker"
 
 export function EventPlayLobby() {
   const searchParams = useSearchParams()
@@ -96,6 +97,10 @@ export function EventPlayLobby() {
     && session.activePromptId
   ) {
     return <AudienceTakeover sessionId={session.id} participant={participant} prompt={prompt} responses={responses} />
+  }
+
+  if (session.activeExperience === "tracker") {
+    return <AudienceReformTracker session={session} participant={participant} />
   }
 
   return (

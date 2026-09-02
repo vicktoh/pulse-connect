@@ -6,6 +6,9 @@ export type TrackerViewMode = "overview" | "lab" | "commitment" | "newest"
 export type LabId = "health" | "water" | "education" | "social-protection" | "debt-accountability"
 export type CommitmentStatus = "draft" | "review" | "published" | "withdrawn"
 export type VerifiedStatus = "stalled" | "progressing" | "completed"
+export type ReformSignalType = "committed-action" | "reform-opportunity" | "advocacy-priority" | "evidence-gap"
+export type ConfirmationStatus = "yes" | "no" | "requires-confirmation"
+export type TrackerReadiness = "ready" | "hold"
 
 export type LabDefinition = {
   id: LabId
@@ -25,7 +28,7 @@ export const LABS: LabDefinition[] = [
 
 export const PREDICTION_OPTIONS = [
   { id: "stalled", label: "Will stall" },
-  { id: "progressing", label: "Will progress" },
+  { id: "progressing", label: "Will move" },
   { id: "completed", label: "Will be completed" },
 ] as const
 
@@ -84,9 +87,21 @@ export type PredictionSummary = {
 export type ReformCommitment = {
   id: string
   lab: LabId
+  signalNumber: number
+  signalCode: string
+  problem: string
+  publicChange: string
+  signalType: ReformSignalType
   statement: string
   leadActor: string
+  confirmationStatus: ConfirmationStatus
+  confirmationNote: string
   intendedOutcome: string
+  milestoneDate: string
+  evidenceOfProgress: string
+  trackerReadiness: TrackerReadiness
+  readBackConfirmed: boolean
+  outstandingItems: string
   status: CommitmentStatus
   headline: boolean
   revision: number
@@ -96,6 +111,12 @@ export type ReformCommitment = {
   predictionSummary: PredictionSummary | null
   createdAtMs: number
   updatedAtMs: number
+}
+
+export type TrackerVote = {
+  id: string
+  commitmentId: string
+  choice: VerifiedStatus
 }
 
 export type GameId =

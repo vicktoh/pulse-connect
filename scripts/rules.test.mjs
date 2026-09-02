@@ -614,6 +614,38 @@ describe("live event platform", () => {
     }))
   })
 
+  it("lets an admin capture the complete Reform Signal template", async () => {
+    await assertSucceeds(setDoc(doc(admin(), "events/PULSE26/commitments/health-signal-new"), {
+      lab: "health",
+      signalNumber: 1,
+      signalCode: "HLT-01",
+      problem: "RUTF stockouts affected caregivers in two LGAs.",
+      publicChange: "Caregivers should find stock or a clear restock date.",
+      signalType: "committed-action",
+      statement: "Publish the current-quarter distribution schedule.",
+      leadActor: "Bauchi State Ministry of Health, Nutrition Division.",
+      confirmationStatus: "yes",
+      confirmationNote: "Confirmed by the Nutrition Officer in the room.",
+      intendedOutcome: "Published distribution schedule",
+      milestoneDate: "2026-10-01",
+      evidenceOfProgress: "Copy of the schedule and a facility spot-check.",
+      trackerReadiness: "ready",
+      readBackConfirmed: true,
+      outstandingItems: "",
+      status: "draft",
+      headline: false,
+      revision: 1,
+      actualStatus: null,
+      evidenceNote: "",
+      evidenceSources: [],
+      predictionSummary: null,
+      publishedAt: null,
+      verifiedAt: null,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }))
+  })
+
   it("publishes commitments while keeping rapporteur metadata private", async () => {
     const publicCommitment = {
       lab: "water",
@@ -711,5 +743,56 @@ describe("live event platform", () => {
       visible: true,
       createdAt: serverTimestamp(),
     }))
+  })
+
+  it("lets each joined attendee vote once per published Reform Signal", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, "events/PULSE26/commitments/health-signal-1"), {
+        lab: "health",
+        statement: "Publish the RUTF distribution schedule.",
+        leadActor: "State Ministry of Health",
+        intendedOutcome: "A public schedule within 90 days.",
+        status: "published",
+        headline: false,
+        revision: 1,
+        actualStatus: null,
+        evidenceNote: "",
+        evidenceSources: [],
+        predictionSummary: null,
+        publishedAt: new Date(),
+        verifiedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      await setDoc(doc(db, "events/PULSE26"), {
+        name: "PULSE Summit Live",
+        code: "PULSE26",
+        status: "live",
+        activeExperience: "tracker",
+        activePromptId: null,
+        trackerViewMode: "overview",
+        trackerLab: null,
+        trackerCommitmentId: null,
+        createdAt: new Date(),
+        createdBy: "admin-1",
+      })
+    })
+
+    const db = anon()
+    await joinEvent(db)
+    const voteRef = doc(db, "events/PULSE26/trackerVotes/visitor-a_health-signal-1")
+    await assertSucceeds(setDoc(voteRef, {
+      commitmentId: "health-signal-1",
+      choice: "progressing",
+      createdAt: serverTimestamp(),
+    }))
+    await assertFails(setDoc(voteRef, {
+      commitmentId: "health-signal-1",
+      choice: "completed",
+      createdAt: serverTimestamp(),
+    }))
+    await assertSucceeds(getDocs(collection(db, "events/PULSE26/trackerVotes")))
+    await assertFails(getDocs(collection(guest(), "events/PULSE26/trackerVotes")))
   })
 })

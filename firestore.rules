@@ -354,26 +354,68 @@ service cloud.firestore {
         allow delete: if isAdmin();
       }
 
+      // Attendees can classify every published Reform Signal while the tracker
+      // is live. The deterministic document id makes the first vote final.
+      match /trackerVotes/{voteId} {
+        allow read: if isAdmin() || (isEventReadable(eventId) && isEventParticipant(eventId));
+
+        allow create: if isEventLive(eventId)
+          && get(eventRef(eventId)).data.activeExperience == 'tracker'
+          && isEventParticipant(eventId)
+          && voteId == request.auth.uid + '_' + request.resource.data.commitmentId
+          && request.resource.data.keys().hasOnly(['commitmentId', 'choice', 'createdAt'])
+          && request.resource.data.keys().hasAll(['commitmentId', 'choice', 'createdAt'])
+          && isText(request.resource.data.commitmentId, 1, 128)
+          && request.resource.data.choice in ['stalled', 'progressing', 'completed']
+          && get(commitmentRef(eventId, request.resource.data.commitmentId)).data.status == 'published'
+          && request.resource.data.createdAt == request.time;
+
+        allow update, delete: if false;
+      }
+
       match /commitments/{commitmentId} {
         allow get, list: if isAdmin() || resource.data.status in ['published', 'withdrawn'];
 
         allow create: if isAdmin()
           && request.resource.data.keys().hasOnly([
-            'lab', 'statement', 'leadActor', 'intendedOutcome', 'status',
+            'lab', 'signalNumber', 'signalCode', 'problem', 'publicChange',
+            'signalType', 'statement', 'leadActor', 'confirmationStatus',
+            'confirmationNote', 'intendedOutcome', 'milestoneDate',
+            'evidenceOfProgress', 'trackerReadiness', 'readBackConfirmed',
+            'outstandingItems', 'status',
             'headline', 'revision', 'actualStatus', 'evidenceNote',
             'evidenceSources', 'predictionSummary', 'publishedAt', 'verifiedAt',
             'createdAt', 'updatedAt'
           ])
           && request.resource.data.keys().hasAll([
-            'lab', 'statement', 'leadActor', 'intendedOutcome', 'status',
+            'lab', 'signalNumber', 'signalCode', 'problem', 'publicChange',
+            'signalType', 'statement', 'leadActor', 'confirmationStatus',
+            'confirmationNote', 'intendedOutcome', 'milestoneDate',
+            'evidenceOfProgress', 'trackerReadiness', 'readBackConfirmed',
+            'outstandingItems', 'status',
             'headline', 'revision', 'actualStatus', 'evidenceNote',
             'evidenceSources', 'predictionSummary', 'publishedAt', 'verifiedAt',
             'createdAt', 'updatedAt'
           ])
           && request.resource.data.lab in ['health', 'water', 'education', 'social-protection', 'debt-accountability']
-          && isText(request.resource.data.statement, 1, 180)
-          && isText(request.resource.data.leadActor, 0, 80)
-          && isText(request.resource.data.intendedOutcome, 0, 180)
+          && request.resource.data.signalNumber is int
+          && request.resource.data.signalNumber >= 1
+          && request.resource.data.signalNumber <= 99
+          && isText(request.resource.data.signalCode, 1, 24)
+          && isText(request.resource.data.problem, 0, 600)
+          && isText(request.resource.data.publicChange, 0, 400)
+          && request.resource.data.signalType in ['committed-action', 'reform-opportunity', 'advocacy-priority', 'evidence-gap']
+          && isText(request.resource.data.statement, 1, 400)
+          && isText(request.resource.data.leadActor, 0, 300)
+          && request.resource.data.confirmationStatus in ['yes', 'no', 'requires-confirmation']
+          && isText(request.resource.data.confirmationNote, 0, 400)
+          && isText(request.resource.data.intendedOutcome, 0, 300)
+          && request.resource.data.milestoneDate is string
+          && request.resource.data.milestoneDate.matches('^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && isText(request.resource.data.evidenceOfProgress, 0, 400)
+          && request.resource.data.trackerReadiness in ['ready', 'hold']
+          && request.resource.data.readBackConfirmed is bool
+          && isText(request.resource.data.outstandingItems, 0, 400)
           && request.resource.data.status == 'draft'
           && request.resource.data.headline == false
           && request.resource.data.revision == 1
@@ -389,21 +431,40 @@ service cloud.firestore {
 
         allow update: if isAdmin()
           && request.resource.data.keys().hasOnly([
-            'lab', 'statement', 'leadActor', 'intendedOutcome', 'status',
+            'lab', 'signalNumber', 'signalCode', 'problem', 'publicChange',
+            'signalType', 'statement', 'leadActor', 'confirmationStatus',
+            'confirmationNote', 'intendedOutcome', 'milestoneDate',
+            'evidenceOfProgress', 'trackerReadiness', 'readBackConfirmed',
+            'outstandingItems', 'status',
             'headline', 'revision', 'actualStatus', 'evidenceNote',
             'evidenceSources', 'predictionSummary', 'publishedAt', 'verifiedAt',
             'createdAt', 'updatedAt'
           ])
           && request.resource.data.lab in ['health', 'water', 'education', 'social-protection', 'debt-accountability']
-          && isText(request.resource.data.statement, 1, 180)
-          && isText(request.resource.data.leadActor, 0, 80)
-          && isText(request.resource.data.intendedOutcome, 0, 180)
+          && request.resource.data.get('signalNumber', 1) is int
+          && request.resource.data.get('signalNumber', 1) >= 1
+          && request.resource.data.get('signalNumber', 1) <= 99
+          && isText(request.resource.data.get('signalCode', ''), 0, 24)
+          && isText(request.resource.data.get('problem', ''), 0, 600)
+          && isText(request.resource.data.get('publicChange', ''), 0, 400)
+          && request.resource.data.get('signalType', 'committed-action') in ['committed-action', 'reform-opportunity', 'advocacy-priority', 'evidence-gap']
+          && isText(request.resource.data.statement, 1, 400)
+          && isText(request.resource.data.leadActor, 0, 300)
+          && request.resource.data.get('confirmationStatus', 'requires-confirmation') in ['yes', 'no', 'requires-confirmation']
+          && isText(request.resource.data.get('confirmationNote', ''), 0, 400)
+          && isText(request.resource.data.intendedOutcome, 0, 300)
+          && request.resource.data.get('milestoneDate', '') is string
+          && request.resource.data.get('milestoneDate', '').matches('^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && isText(request.resource.data.get('evidenceOfProgress', ''), 0, 400)
+          && request.resource.data.get('trackerReadiness', 'hold') in ['ready', 'hold']
+          && request.resource.data.get('readBackConfirmed', false) is bool
+          && isText(request.resource.data.get('outstandingItems', ''), 0, 400)
           && request.resource.data.status in ['draft', 'review', 'published', 'withdrawn']
           && (
             request.resource.data.status == 'draft'
             || (
-              isText(request.resource.data.leadActor, 1, 80)
-              && isText(request.resource.data.intendedOutcome, 1, 180)
+              isText(request.resource.data.leadActor, 1, 300)
+              && isText(request.resource.data.intendedOutcome, 1, 300)
             )
           )
           && request.resource.data.headline is bool

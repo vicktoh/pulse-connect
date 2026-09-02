@@ -6,6 +6,8 @@ import {
   doc,
   onSnapshot,
   query,
+  serverTimestamp,
+  setDoc,
   where,
   type DocumentData,
   type DocumentSnapshot,
@@ -17,6 +19,7 @@ import type {
   LabId,
   PredictionSummary,
   ReformCommitment,
+  TrackerVote,
   VerifiedStatus,
 } from "@/lib/events/types"
 
@@ -33,9 +36,21 @@ function parseCommitment(item: DocumentSnapshot<DocumentData>): ReformCommitment
   return {
     id: item.id,
     lab: data.lab as LabId,
+    signalNumber: Math.max(1, Number(data.signalNumber ?? 1)),
+    signalCode: String(data.signalCode ?? ""),
+    problem: String(data.problem ?? ""),
+    publicChange: String(data.publicChange ?? ""),
+    signalType: (data.signalType ?? "committed-action") as ReformCommitment["signalType"],
     statement: String(data.statement ?? ""),
     leadActor: String(data.leadActor ?? ""),
+    confirmationStatus: (data.confirmationStatus ?? "requires-confirmation") as ReformCommitment["confirmationStatus"],
+    confirmationNote: String(data.confirmationNote ?? ""),
     intendedOutcome: String(data.intendedOutcome ?? ""),
+    milestoneDate: String(data.milestoneDate ?? ""),
+    evidenceOfProgress: String(data.evidenceOfProgress ?? ""),
+    trackerReadiness: (data.trackerReadiness ?? "hold") as ReformCommitment["trackerReadiness"],
+    readBackConfirmed: data.readBackConfirmed === true,
+    outstandingItems: String(data.outstandingItems ?? ""),
     status: data.status as CommitmentStatus,
     headline: data.headline === true,
     revision: Number(data.revision ?? 1),
@@ -52,6 +67,46 @@ function parseCommitment(item: DocumentSnapshot<DocumentData>): ReformCommitment
     createdAtMs: timestampMillis(data.createdAt),
     updatedAtMs: timestampMillis(data.updatedAt),
   }
+}
+
+export function useTrackerVotes(sessionId: string | null) {
+  const [snapshotState, setSnapshotState] = useState<{ key: string; items: TrackerVote[] } | null>(null)
+
+  useEffect(() => {
+    if (!sessionId) return
+    return onSnapshot(
+      collection(db, "events", sessionId, "trackerVotes"),
+      (snapshot) => setSnapshotState({
+        key: sessionId,
+        items: snapshot.docs.map((item) => ({
+          id: item.id,
+          commitmentId: String(item.data().commitmentId ?? ""),
+          choice: item.data().choice as VerifiedStatus,
+        })),
+      }),
+      () => setSnapshotState({ key: sessionId, items: [] }),
+    )
+  }, [sessionId])
+
+  return snapshotState?.key === sessionId ? snapshotState.items : []
+}
+
+export async function saveTrackerVote({
+  sessionId,
+  participantId,
+  commitmentId,
+  choice,
+}: {
+  sessionId: string
+  participantId: string
+  commitmentId: string
+  choice: VerifiedStatus
+}) {
+  await setDoc(doc(db, "events", sessionId, "trackerVotes", `${participantId}_${commitmentId}`), {
+    commitmentId,
+    choice,
+    createdAt: serverTimestamp(),
+  })
 }
 
 export function useReformCommitments(sessionId: string | null, admin = false) {
