@@ -55,7 +55,7 @@ type Round = {
   answers: [Answer, Answer]
 }
 
-const ROUND_SECONDS = 10
+const ROUND_SECONDS = 15
 
 const TEAMS: Team[] = [
   {
@@ -514,7 +514,7 @@ export function FollowTheNairaGame() {
                 <h1 id="game-title">The Naira!</h1>
               </div>
               <p className={styles.introCopy}>
-                Four gates. Ten seconds each. One mission: get as much of
+                Four gates. Fifteen seconds each. One mission: get as much of
                 <strong> ₦500 million</strong> as possible to the people it was
                 approved for.
               </p>
