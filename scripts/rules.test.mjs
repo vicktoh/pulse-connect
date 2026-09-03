@@ -145,6 +145,26 @@ beforeEach(async () => {
       score: 700,
       playedAt: new Date(),
     })
+    await setDoc(doc(db, "events/PULSE26/synthesis/cross-lab-01"), {
+      kind: "cross-lab",
+      order: 1,
+      eyebrow: "Traceability",
+      title: "Make every naira traceable.",
+      summary: "A published synthesis point.",
+      action: "Publish reusable records.",
+      labIds: ["health", "water"],
+      commitmentIds: ["health-01", "water-01"],
+      evidence: ["Release data", "Scheme status"],
+      status: "published",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    await setDoc(doc(db, "events/PULSE26/synthesis/draft-point"), {
+      kind: "cross-lab",
+      order: 2,
+      title: "Unfinished synthesis",
+      status: "draft",
+    })
   })
 })
 
@@ -190,6 +210,25 @@ describe("public read access", () => {
       where("moderation", "==", "pending")
     )
     await assertSucceeds(getDocs(q))
+  })
+})
+
+describe("reform synthesis access", () => {
+  it("allows anyone to read published synthesis", async () => {
+    await assertSucceeds(getDoc(doc(guest(), "events/PULSE26/synthesis/cross-lab-01")))
+  })
+
+  it("hides draft synthesis from the public", async () => {
+    await assertFails(getDoc(doc(guest(), "events/PULSE26/synthesis/draft-point")))
+  })
+
+  it("allows a public query constrained to published synthesis", async () => {
+    const q = query(collection(guest(), "events/PULSE26/synthesis"), where("status", "==", "published"))
+    await assertSucceeds(getDocs(q))
+  })
+
+  it("allows an admin to read draft synthesis", async () => {
+    await assertSucceeds(getDoc(doc(admin(), "events/PULSE26/synthesis/draft-point")))
   })
 })
 

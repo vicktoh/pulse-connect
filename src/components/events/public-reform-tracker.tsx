@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { collection, doc, getDoc, getDocs, limit, query, where } from "firebase/firestore"
-import { ArrowRight, ArrowUpRight, CheckCircle2, CircleDashed, ExternalLink, Radio, Search, SlidersHorizontal, Target, X } from "lucide-react"
+import { ArrowRight, ArrowUpRight, CheckCircle2, CircleDashed, ExternalLink, Network, Radio, Search, SlidersHorizontal, Target, X } from "lucide-react"
 
 import { db } from "@/lib/firebase/client"
 import { parseEventSession } from "@/lib/events/parse-event-session"
@@ -80,7 +80,7 @@ export function PublicReformTracker() {
       </header>
 
       <section className={styles.hero}>
-        <div className={styles.heroCopy}><span className={styles.eyebrow}><Radio /> FROM THE LABS TO ACTION</span><h1>Follow every<br /><em>reform signal.</em></h1><p>A simple view of who committed to what, the first milestone, and how progress will be evidenced.</p></div>
+        <div className={styles.heroCopy}><span className={styles.eyebrow}><Radio /> FROM THE LABS TO ACTION</span><h1>Follow every<br /><em>reform signal.</em></h1><p>A simple view of who committed to what, the first milestone, and how progress will be evidenced.</p><Link className={styles.synthesisLink} href={`/reform-tracker/themes?session=${session.code}`}><span><Network /><b>See the cross-lab synthesis</b><small>Five overarching points connecting the Reform Signals</small></span><ArrowRight /></Link></div>
         <div className={styles.statRow}><div><strong>{commitments.length}</strong><span>Signals</span></div><div><strong>{headlines}</strong><span>Headlines</span></div><div><strong>{verified}</strong><span>Verified</span></div><div><strong>5</strong><span>Labs</span></div></div>
       </section>
 

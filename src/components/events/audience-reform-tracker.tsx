@@ -2,11 +2,12 @@
 
 import Image from "next/image"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { ArrowLeft, ArrowRight, Check, CheckCircle2, CircleDashed, Clock3, Radio, Route, Search, ShieldCheck, SlidersHorizontal, Target, Users } from "lucide-react"
+import { ArrowLeft, ArrowRight, Check, CheckCircle2, CircleDashed, Clock3, Network, Radio, Route, Search, ShieldCheck, SlidersHorizontal, Target, Users } from "lucide-react"
 
-import { saveTrackerVote, useReformCommitments, useTrackerVotes } from "@/lib/events/reform-tracker"
+import { saveTrackerVote, useReformCommitments, useReformSynthesis, useTrackerVotes } from "@/lib/events/reform-tracker"
 import { LABS, type EventParticipant, type EventSession, type ReformCommitment, type TrackerVote, type VerifiedStatus } from "@/lib/events/types"
 import styles from "./audience-reform-tracker.module.css"
+import { ReformSynthesisCarousel } from "./reform-synthesis-carousel"
 
 const SIGNAL_LABELS: Record<ReformCommitment["signalType"], string> = { "committed-action": "Committed action", "reform-opportunity": "Reform opportunity", "advocacy-priority": "Advocacy priority", "evidence-gap": "Evidence gap" }
 const LAB_IMAGES: Record<ReformCommitment["lab"], string> = { health: "/images/labs/health.webp", water: "/images/labs/water.webp", education: "/images/labs/education.webp", "social-protection": "/images/labs/social-protection.webp", "debt-accountability": "/images/labs/debt-accountability.webp" }
@@ -19,6 +20,8 @@ const VOTE_OPTIONS: { id: VerifiedStatus; label: string; detail: string }[] = [
 export function AudienceReformTracker({ session, participant }: { session: EventSession; participant: EventParticipant }) {
   const commitments = useReformCommitments(session.id).filter((item) => item.status === "published")
   const votes = useTrackerVotes(session.id)
+  const synthesis = useReformSynthesis(session.id)
+  const [view, setView] = useState<"signals" | "synthesis">("signals")
   const [lab, setLab] = useState<"all" | ReformCommitment["lab"]>(session.trackerLab ?? "all")
   const [status, setStatus] = useState<"all" | VerifiedStatus>("all")
   const [search, setSearch] = useState("")
@@ -73,9 +76,11 @@ export function AudienceReformTracker({ session, participant }: { session: Event
     <main className={styles.tracker}>
       <header className={styles.header}><div className={styles.brand}><span>PULSE</span><strong>Reform Tracker</strong></div><div className={styles.live}><i /><Radio /> LIVE WITH THE HOST</div><div className={styles.player}><small>JOINED AS</small><strong>{participant.name}</strong></div></header>
 
-      <section className={styles.intro}><div><span>FROM THE LABS TO ACTION</span><h1>Explore every<br /><em>reform signal.</em></h1></div><p>Filter the live record, select any commitment, then review its details and call what happens next.</p></section>
+      <section className={styles.intro}><div><span>{view === "signals" ? "FROM THE LABS TO ACTION" : "THE SHARED REFORM PICTURE"}</span><h1>{view === "signals" ? <>Explore every<br /><em>reform signal.</em></> : <>See what the<br /><em>labs share.</em></>}</h1></div><p>{view === "signals" ? "Filter the live record, select any commitment, then review its details and call what happens next." : "Move through the overarching points connecting the lab conversations, then see the defining theme from each room."}</p></section>
 
-      <section className={styles.filters}>
+      <nav className={styles.viewSwitch} aria-label="Choose tracker view"><button data-active={view === "signals" ? "true" : "false"} onClick={() => setView("signals")}><Target /> Reform Signals <b>{commitments.length}</b></button><button data-active={view === "synthesis" ? "true" : "false"} onClick={() => setView("synthesis")}><Network /> Shared Themes <b>{synthesis.filter((point) => point.kind === "cross-lab").length}</b></button></nav>
+
+      {view === "synthesis" ? <ReformSynthesisCarousel points={synthesis} compact /> : <><section className={styles.filters}>
         <nav aria-label="Filter Reform Signals by lab"><button className={lab === "all" ? styles.activeLab : ""} onClick={() => { setLab("all"); setActiveId(null) }}><Target /> All <b>{commitments.length}</b></button>{LABS.map((item) => { const count = commitments.filter((commitment) => commitment.lab === item.id).length; return <button className={lab === item.id ? styles.activeLab : ""} style={{ "--lab-accent": item.accent } as React.CSSProperties} onClick={() => { setLab(item.id); setActiveId(null) }} key={item.id}>{item.shortName}<b>{count}</b></button> })}</nav>
         <div><label><Search /><input value={search} onChange={(event) => { setSearch(event.target.value); setActiveId(null) }} placeholder="Search signals or actors" /></label><label><SlidersHorizontal /><select value={status} onChange={(event) => { setStatus(event.target.value as "all" | VerifiedStatus); setActiveId(null) }}><option value="all">All progress</option><option value="progressing">Progressing</option><option value="completed">Completed</option><option value="stalled">Stalled</option></select></label>{(lab !== "all" || status !== "all" || search) && <button onClick={resetFilters}>Clear</button>}</div>
       </section>
@@ -90,7 +95,7 @@ export function AudienceReformTracker({ session, participant }: { session: Event
           <div className={styles.signalMain}><div className={styles.signalMeta}><Image src={LAB_IMAGES[active.lab]} alt="" width={640} height={640} sizes="64px" /><span><b>{(LABS.find((item) => item.id === active.lab) ?? LABS[0]).name} Lab</b><small>Reform Signal {String(active.signalNumber).padStart(2, "0")} · {SIGNAL_LABELS[active.signalType]}</small></span></div><h2>{active.statement}</h2><div className={styles.storyGrid}><Detail icon={<CircleDashed />} label="THE PROBLEM" value={active.problem || "Problem detail will be added after validation."} /><Detail icon={<Route />} label="THE CHANGE PEOPLE SHOULD EXPERIENCE" value={active.publicChange || active.intendedOutcome} /><Detail icon={<Users />} label="WHO ACTS" value={active.leadActor} /><Detail icon={<Clock3 />} label="FIRST MILESTONE" value={`${active.intendedOutcome}${active.milestoneDate ? ` · ${formatDate(active.milestoneDate)}` : ""}`} /><Detail icon={<ShieldCheck />} label="CONFIRMATION" value={active.confirmationNote || confirmationLabel(active.confirmationStatus)} /><Detail icon={<CheckCircle2 />} label="EVIDENCE OF PROGRESS" value={active.evidenceOfProgress || "Evidence source to be confirmed."} /></div></div>
           <aside className={styles.votePanel}><span>PROMISE OR PROGRESS?</span><h3>What will this signal do next?</h3><p>One vote per attendee, per Reform Signal. Your first choice is final.</p>{!myVote ? <div className={styles.voteOptions}>{VOTE_OPTIONS.map((option) => <button disabled={busy} onClick={() => void vote(option.id)} data-choice={option.id} key={option.id}><i /><span><strong>{option.label}</strong><small>{option.detail}</small></span><ArrowRight /></button>)}</div> : <VoteResults votes={activeVotes} selected={myVote.choice} />}{error && <p className={styles.error}>{error}</p>}</aside>
         </article>
-      </>}
+      </>}</>}
     </main>
   )
 }

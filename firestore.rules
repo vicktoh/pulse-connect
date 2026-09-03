@@ -498,6 +498,13 @@ service cloud.firestore {
         }
       }
 
+      // Editorial synthesis is public only after publication. Admin tooling and
+      // ingestion scripts can stage drafts without exposing unfinished analysis.
+      match /synthesis/{synthesisId} {
+        allow get, list: if isAdmin() || resource.data.status == 'published';
+        allow create, update, delete: if isAdmin();
+      }
+
       // Rapporteur identity and withdrawal reasons are deliberately separated
       // from public commitment documents so public tracker queries cannot leak them.
       match /commitmentMeta/{commitmentId} {

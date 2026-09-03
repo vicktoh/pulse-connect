@@ -1,8 +1,9 @@
 /**
- * Seeds clearly labelled demonstration Reform Signals into an existing event.
+ * Seeds demonstration Reform Signals and their editorial synthesis into an existing event.
  *
  * Usage:
  *   node scripts/seed-reform-tracker.mjs --event PULSE55 --confirm
+ *   node scripts/seed-reform-tracker.mjs --event PULSE55 --synthesis-only --confirm
  *
  * The deterministic `sample-reform-*` ids make the script safe to re-run while
  * ensuring it never overwrites rapporteur-created commitments.
@@ -14,9 +15,10 @@ const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "pulse-connect
 const args = new Set(process.argv.slice(2))
 const eventFlagIndex = process.argv.indexOf("--event")
 const EVENT_ID = eventFlagIndex >= 0 ? process.argv[eventFlagIndex + 1]?.trim().toUpperCase() : ""
+const SYNTHESIS_ONLY = args.has("--synthesis-only")
 
 if (!EVENT_ID || !args.has("--confirm")) {
-  console.error("Usage: node scripts/seed-reform-tracker.mjs --event EVENT_CODE --confirm")
+  console.error("Usage: node scripts/seed-reform-tracker.mjs --event EVENT_CODE [--synthesis-only] --confirm")
   process.exit(1)
 }
 
@@ -128,6 +130,129 @@ const SIGNALS = [
   },
 ]
 
+const SYNTHESIS = [
+  {
+    id: "cross-lab-01",
+    kind: "cross-lab",
+    order: 1,
+    eyebrow: "Traceability",
+    title: "Make every naira traceable to the last mile.",
+    summary: "Across health, water, education and debt, the recurring demand is the same: connect public money to a place, a service and the people meant to benefit.",
+    action: "Publish reusable records that join allocation, release, delivery location and result.",
+    labIds: ["health", "water", "education", "debt-accountability"],
+    commitmentIds: ["sample-reform-health-01", "sample-reform-water-01", "sample-reform-education-01", "sample-reform-debt-01"],
+    evidence: ["PHC releases by LGA and facility", "Water schemes linked to procurement and delivery status", "Loans connected to named projects and outcomes"],
+  },
+  {
+    id: "cross-lab-02",
+    kind: "cross-lab",
+    order: 2,
+    eyebrow: "Delivery",
+    title: "Publish delivery, not just allocation.",
+    summary: "A budget line or loan approval is only the beginning. The signals ask institutions to show where implementation sits, what is blocked and when the public should expect movement.",
+    action: "Track a first milestone, current delivery stage and expected completion date for every reform.",
+    labIds: ["health", "water", "education", "social-protection", "debt-accountability"],
+    commitmentIds: SIGNALS.map((signal) => signal.id),
+    evidence: ["Quarterly release dashboard", "Scheme status register", "Pilot frameworks and validation cycles", "Project-level debt disclosure"],
+  },
+  {
+    id: "cross-lab-03",
+    kind: "cross-lab",
+    order: 3,
+    eyebrow: "Public value",
+    title: "Measure reform through people’s experience.",
+    summary: "The strongest shared measure is not whether an agency completed a process, but whether residents can see, access, verify or correct the public service that process was meant to improve.",
+    action: "Write outcomes in public language and test them against a visible change in people’s lives.",
+    labIds: ["health", "water", "education", "social-protection", "debt-accountability"],
+    commitmentIds: SIGNALS.map((signal) => signal.id),
+    evidence: ["Residents see what reached facilities", "Communities see why schemes stall", "Households verify and correct beneficiary records"],
+  },
+  {
+    id: "cross-lab-04",
+    kind: "cross-lab",
+    order: 4,
+    eyebrow: "Ownership",
+    title: "Name the owner and the first proof point.",
+    summary: "Momentum becomes credible when each signal names the institutions that must act, the first dated milestone and the evidence that will show whether anything changed.",
+    action: "No signal goes live without a lead actor, milestone and observable proof of progress.",
+    labIds: ["health", "water", "education", "social-protection", "debt-accountability"],
+    commitmentIds: SIGNALS.map((signal) => signal.id),
+    evidence: ["A responsible institution for every signal", "A dated milestone between December 2026 and April 2027", "A public artefact as evidence"],
+  },
+  {
+    id: "cross-lab-05",
+    kind: "cross-lab",
+    order: 5,
+    eyebrow: "Inclusion",
+    title: "Build accountability with a correction route.",
+    summary: "Transparency becomes useful when excluded people can challenge the record. Education and social protection make this explicit; the same principle strengthens every public dataset in the tracker.",
+    action: "Pair publication with inclusion markers, public review and a route to correct missing or inaccurate records.",
+    labIds: ["education", "social-protection", "health", "water", "debt-accountability"],
+    commitmentIds: ["sample-reform-education-01", "sample-reform-social-01", "sample-reform-health-01", "sample-reform-water-01", "sample-reform-debt-01"],
+    evidence: ["Gender and disability markers in education budgets", "Community validation of beneficiary records", "Public review of the loan-to-project prototype"],
+  },
+  {
+    id: "lab-health",
+    kind: "lab-theme",
+    order: 1,
+    eyebrow: "Health Lab",
+    title: "Last-mile funding visibility",
+    summary: "Make PHC funding releases visible at the LGA and facility where services are delivered.",
+    action: "Follow approved funds through release to receipt.",
+    labIds: ["health"],
+    commitmentIds: ["sample-reform-health-01"],
+    evidence: ["Quarterly LGA and facility release data"],
+  },
+  {
+    id: "lab-water",
+    kind: "lab-theme",
+    order: 2,
+    eyebrow: "Water Lab",
+    title: "Bottleneck visibility",
+    summary: "Show whether stalled schemes are blocked by funding, procurement or contractor delivery.",
+    action: "Expose the stage, owner and expected completion date.",
+    labIds: ["water"],
+    commitmentIds: ["sample-reform-water-01"],
+    evidence: ["Reusable rural water scheme status register"],
+  },
+  {
+    id: "lab-education",
+    kind: "lab-theme",
+    order: 3,
+    eyebrow: "Education Lab",
+    title: "Equity by design",
+    summary: "Make the distributional effect of education spending visible for underserved learners.",
+    action: "Embed gender, disability and access markers in budgets.",
+    labIds: ["education"],
+    commitmentIds: ["sample-reform-education-01"],
+    evidence: ["Inclusive budget call circular"],
+  },
+  {
+    id: "lab-social-protection",
+    kind: "lab-theme",
+    order: 4,
+    eyebrow: "Social Protection Lab",
+    title: "A living social register",
+    summary: "Keep beneficiary records current and give eligible households a transparent correction route.",
+    action: "Validate registers annually with communities.",
+    labIds: ["social-protection"],
+    commitmentIds: ["sample-reform-social-01"],
+    evidence: ["Published validation protocol and corrected-record summary"],
+  },
+  {
+    id: "lab-debt-accountability",
+    kind: "lab-theme",
+    order: 5,
+    eyebrow: "Debt & Accountability Lab",
+    title: "Finance-to-outcome traceability",
+    summary: "Connect each major loan to the project, location, milestones and public result it finances.",
+    action: "Publish a reusable loan-to-project record.",
+    labIds: ["debt-accountability"],
+    commitmentIds: ["sample-reform-debt-01"],
+    evidence: ["Project-level debt disclosure dataset"],
+  },
+]
+
 async function main() {
   initializeApp({ credential: applicationDefault(), projectId: PROJECT_ID })
   const db = getFirestore()
@@ -137,26 +262,39 @@ async function main() {
   if (!eventSnapshot.exists) throw new Error(`Event ${EVENT_ID} does not exist.`)
 
   const batch = db.batch()
-  for (const { id, ...signal } of SIGNALS) {
-    const ref = eventRef.collection("commitments").doc(id)
+  if (!SYNTHESIS_ONLY) {
+    for (const { id, ...signal } of SIGNALS) {
+      const ref = eventRef.collection("commitments").doc(id)
+      const existing = await ref.get()
+      batch.set(ref, {
+        ...signal,
+        status: "published",
+        revision: 1,
+        actualStatus: null,
+        evidenceNote: "",
+        evidenceSources: [],
+        publishedAt: FieldValue.serverTimestamp(),
+        verifiedAt: null,
+        createdAt: existing.exists ? existing.get("createdAt") : FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+    }
+  }
+
+  for (const { id, ...point } of SYNTHESIS) {
+    const ref = eventRef.collection("synthesis").doc(id)
     const existing = await ref.get()
     batch.set(ref, {
-      ...signal,
+      ...point,
       status: "published",
-      revision: 1,
-      actualStatus: null,
-      evidenceNote: "",
-      evidenceSources: [],
-      publishedAt: FieldValue.serverTimestamp(),
-      verifiedAt: null,
       createdAt: existing.exists ? existing.get("createdAt") : FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     })
   }
 
   await batch.commit()
-  console.log(`Seeded ${SIGNALS.length} sample Reform Signals into ${PROJECT_ID}/${EVENT_ID}.`)
-  for (const signal of SIGNALS) console.log(`  ${signal.lab.padEnd(19)} ${signal.statement}`)
+  console.log(`Seeded ${SYNTHESIS_ONLY ? 0 : SIGNALS.length} Reform Signals and ${SYNTHESIS.length} synthesis points into ${PROJECT_ID}/${EVENT_ID}.`)
+  if (!SYNTHESIS_ONLY) for (const signal of SIGNALS) console.log(`  ${signal.lab.padEnd(19)} ${signal.statement}`)
 }
 
 main().then(

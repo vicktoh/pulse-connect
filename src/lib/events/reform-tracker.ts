@@ -19,6 +19,7 @@ import type {
   LabId,
   PredictionSummary,
   ReformCommitment,
+  ReformSynthesisPoint,
   TrackerVote,
   VerifiedStatus,
 } from "@/lib/events/types"
@@ -28,6 +29,25 @@ function timestampMillis(value: unknown) {
     return value.toMillis()
   }
   return 0
+}
+
+function parseSynthesisPoint(item: DocumentSnapshot<DocumentData>): ReformSynthesisPoint {
+  const data = item.data() ?? {}
+  return {
+    id: item.id,
+    kind: data.kind === "lab-theme" ? "lab-theme" : "cross-lab",
+    order: Number(data.order ?? 0),
+    eyebrow: String(data.eyebrow ?? ""),
+    title: String(data.title ?? ""),
+    summary: String(data.summary ?? ""),
+    action: String(data.action ?? ""),
+    labIds: Array.isArray(data.labIds) ? data.labIds.map(String) as LabId[] : [],
+    commitmentIds: Array.isArray(data.commitmentIds) ? data.commitmentIds.map(String) : [],
+    evidence: Array.isArray(data.evidence) ? data.evidence.map(String) : [],
+    status: data.status === "draft" ? "draft" : "published",
+    createdAtMs: timestampMillis(data.createdAt),
+    updatedAtMs: timestampMillis(data.updatedAt),
+  }
 }
 
 function parseCommitment(item: DocumentSnapshot<DocumentData>): ReformCommitment {
@@ -156,6 +176,29 @@ export function useReformCommitment(sessionId: string | null, commitmentId: stri
   }, [commitmentId, sessionId])
 
   return snapshotState?.key === key ? snapshotState.item : null
+}
+
+export function useReformSynthesis(sessionId: string | null) {
+  const [snapshotState, setSnapshotState] = useState<{ key: string; items: ReformSynthesisPoint[] } | null>(null)
+
+  useEffect(() => {
+    if (!sessionId) return
+    return onSnapshot(
+      query(collection(db, "events", sessionId, "synthesis"), where("status", "==", "published")),
+      (snapshot) => setSnapshotState({
+        key: sessionId,
+        items: snapshot.docs.map(parseSynthesisPoint),
+      }),
+      () => setSnapshotState({ key: sessionId, items: [] }),
+    )
+  }, [sessionId])
+
+  return useMemo(
+    () => snapshotState?.key === sessionId
+      ? [...snapshotState.items].sort((a, b) => a.kind.localeCompare(b.kind) || a.order - b.order)
+      : [],
+    [sessionId, snapshotState],
+  )
 }
 
 export type CommitmentMeta = {

@@ -9,6 +9,8 @@ export type VerifiedStatus = "stalled" | "progressing" | "completed"
 export type ReformSignalType = "committed-action" | "reform-opportunity" | "advocacy-priority" | "evidence-gap"
 export type ConfirmationStatus = "yes" | "no" | "requires-confirmation"
 export type TrackerReadiness = "ready" | "hold"
+export type ReformSynthesisKind = "lab-theme" | "cross-lab"
+export type ReformSynthesisStatus = "draft" | "published"
 
 export type LabDefinition = {
   id: LabId
@@ -117,6 +119,22 @@ export type TrackerVote = {
   id: string
   commitmentId: string
   choice: VerifiedStatus
+}
+
+export type ReformSynthesisPoint = {
+  id: string
+  kind: ReformSynthesisKind
+  order: number
+  eyebrow: string
+  title: string
+  summary: string
+  action: string
+  labIds: LabId[]
+  commitmentIds: string[]
+  evidence: string[]
+  status: ReformSynthesisStatus
+  createdAtMs: number
+  updatedAtMs: number
 }
 
 export type GameId =
